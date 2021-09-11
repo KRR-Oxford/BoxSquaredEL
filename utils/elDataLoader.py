@@ -80,6 +80,7 @@ def load_data(filename):
             else:
                 # C SubClassOf D
                 it = line.split(' ')
+
                 c = it[0]
                 d = it[1]
                 if c not in classes:
@@ -128,9 +129,9 @@ def load_data(filename):
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
     data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)
     data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
-    data['disjoint'] = np.array(data['disjoint'])
-    data['top'] = np.array([classes['owl:Thing'], ])
-    data['nf3_neg'] = np.array(data['nf3_neg'])
+    data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
+    data['top'] = torch.tensor([classes['owl:Thing']],  dtype=torch.int32)
+    data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
 
     for key, val in data.items():
         index = np.arange(len(data[key]))

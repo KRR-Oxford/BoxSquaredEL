@@ -5,9 +5,8 @@ from ELModel import ELModel
 from utils.elDataLoader import load_data, load_valid_data
 import logging
 import torch
-
 logging.basicConfig(level=logging.INFO)
-
+import pandas as pd
 
 @ck.command()
 @ck.option(
@@ -52,22 +51,28 @@ logging.basicConfig(level=logging.INFO)
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    device = torch.device('cuda:0')
-    print(torch.cuda.is_available())
+    device = torch.device('cpu')
 
+    #training procedure
     train_data, classes, relations = load_data(data_file)
     model = ELModel(device,len(classes), len(relations), embedding_dim=50)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-2)
+    optimizer = optim.Adam(model.parameters(), lr = 1e-3)
+    model.to(device)
     train(model,train_data, optimizer)
-    model = model.to(device)
+
+    #store embedding
 
 
 
-def train(model, data, optimizer, num_epochs=200):
+
+
+
+
+def train(model, data, optimizer, num_epochs=100):
     for epoch in range(num_epochs):
         model.train()
         loss = model(data)
-        print(loss)
+        print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
