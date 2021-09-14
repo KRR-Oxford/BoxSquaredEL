@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+
 '''
 Transformer the embedding to the left-bottom point of the box
 '''
@@ -88,7 +89,7 @@ class ELModel(nn.Module):
         embedding_dim: the dimension of the embedding(both class and relatio)
         margin: the distance that two box apart
     '''
-    def __init__(self, device, classNum, relationNum, embedding_dim, margin=1e-9):
+    def __init__(self, device, classNum, relationNum, embedding_dim, margin=0):
         super(ELModel, self).__init__()
         self.margin=margin
         self.classNum = classNum
@@ -110,8 +111,8 @@ class ELModel(nn.Module):
         cClass = self.classEmbeddingDict(torch.tensor(range(self.classNum)).to(self.device))
         cClassCenter = self.centerTransModel(cClass)
         cClassOffset = self.offsetTransModel(cClass)
-        classLengthLimit = torch.abs(torch.sum(cClassCenter * cClassCenter) - 1) / len(cClassCenter)
-        classLengthLimit += torch.abs(torch.sum(cClassOffset * cClassOffset) - 1)/ len(cClassOffset)
+        classLengthLimit = torch.sum(torch.abs(torch.sum(cClassCenter * cClassCenter,1) - 1)) / len(cClassCenter)
+        classLengthLimit += torch.sum(torch.abs(torch.sum(cClassOffset * cClassOffset,1) - 1))/ len(cClassOffset)
 
         # classes box
         classBoxLimit = torch.sum(torch.maximum(cClassCenter - cClassOffset, torch.zeros(cClassOffset.shape,requires_grad=False).to(self.device))) / len(cClassOffset)
@@ -120,14 +121,15 @@ class ELModel(nn.Module):
         cRelation = self.relationEmbeddingDict(torch.tensor(range(self.relationNum)).to(self.device))
         cRelationCenter = self.centerTransModel(cRelation)
         cRelationOffset = self.offsetTransModel(cRelation)
-        relationLengthLimit = torch.abs(torch.sum(cRelationCenter * cRelationCenter) - 1) / len(cRelationCenter)
-        relationLengthLimit += torch.abs(torch.sum(cRelationOffset * cRelationOffset) - 1) / len(cRelationOffset)
+        relationLengthLimit = torch.sum(torch.abs(torch.sum(cRelationCenter * cRelationCenter,1) - 1) )/ len(cRelationCenter)
+        relationLengthLimit += torch.sum(torch.abs(torch.sum(cRelationOffset * cRelationOffset,1) - 1)) / len(cRelationOffset)
 
         # relation box
         relationBoxLimit = torch.sum(torch.maximum(cRelationCenter - cRelationOffset, torch.zeros(cRelationOffset.shape,requires_grad=False).to(self.device))) / len(
             cRelationOffset)
 
-        return classLengthLimit + classBoxLimit + relationLengthLimit + relationBoxLimit
+
+        return classBoxLimit  + relationBoxLimit + classLengthLimit + relationLengthLimit
 
 
     # cClass isSubSetof dClass
@@ -142,14 +144,22 @@ class ELModel(nn.Module):
         dClassCenter = self.centerTransModel(dClass)
         dClassOffset = self.offsetTransModel(dClass)
 
-        margin = torch.ones(cClassCenter.shape,requires_grad=False)*self.margin
-        margin = margin.to(self.device)
+        margin = (torch.ones(cClassOffset.shape, requires_grad=False) * self.margin).to(self.device)
 
-        leftBottomLimit =  torch.sum(torch.maximum(dClassCenter-cClassCenter, margin)) / len(cClassCenter)
-        righttopLimit = torch.sum(torch.maximum(cClassOffset - dClassOffset, margin)) / len(dClassOffset)
+        zeros = (torch.zeros(cClassOffset.shape, requires_grad=False) * self.margin).to(self.device)
 
-        return leftBottomLimit + righttopLimit
+        leftBottomLimit =  torch.sum(torch.maximum(dClassCenter-cClassCenter+margin, zeros)) / len(cClassCenter)
+        righttopLimit = torch.sum(torch.maximum(cClassOffset - dClassOffset+margin, zeros)) / len(dClassOffset)
 
+        shapeLimit = torch.sum(torch.maximum(cClassCenter - cClassOffset+margin,
+                                                     zeros)) / len(cClassOffset)
+
+        shapeLimit += torch.sum(torch.maximum(dClassCenter - dClassOffset+margin,
+                                                     zeros)) / len(dClassOffset)
+
+        return leftBottomLimit + righttopLimit + shapeLimit
+
+    #cClass and dCLass isSubSetof eClass
     def nf2Loss(self, input):
         cClass = self.classEmbeddingDict(input[:, 0])
         dClass = self.classEmbeddingDict(input[:, 1])
@@ -164,24 +174,54 @@ class ELModel(nn.Module):
         eClassCenter = self.centerTransModel(eClass)
         eClassOffset = self.offsetTransModel(eClass)
 
-        #get new center
-        softmax = nn.Softmax(dim=1)
-        softmax = softmax(torch.cat((self.mlp4intersection(cClass),self.mlp4intersection(dClass)),dim = 1))
-        newCenter = cClassCenter*torch.unsqueeze(softmax[:,0],1) + dClassCenter*torch.unsqueeze(softmax[:,1],1)
+        startX = torch.maximum(cClassCenter[:, 0], dClassCenter[:, 0])
+        endX = torch.minimum(cClassOffset[:, 0], dClassOffset[:, 0])
 
-        #get new offset
-        theta = (self.deepset(cClass) + self.deepset(dClass)) / 2
-        newOffset = torch.minimum(cClassOffset-cClassCenter,dClassOffset-dClassCenter) * theta
-        newOffset = newCenter+newOffset
+        startY = torch.maximum(cClassCenter[:, 1], dClassCenter[:, 1])
+        endY = torch.minimum(cClassOffset[:, 1], dClassOffset[:, 1])
 
-        # is subset
+
         margin = torch.ones(eClassCenter.shape, requires_grad=False) * self.margin
         margin = margin.to(self.device)
 
-        leftBottomLimit = torch.sum(torch.maximum(eClassCenter - newCenter, margin)) / len(newCenter)
-        righttopLimit = torch.sum(torch.maximum(newOffset - eClassOffset, margin)) / len(eClassOffset)
+        leftBottomLimit = torch.sum(torch.maximum(eClassCenter[:,0] - startX, margin)) / len(startX)+\
+                          torch.sum(torch.maximum(eClassCenter[:,1] - endX, margin)) / len(startX)
+        righttopLimit = torch.sum(torch.maximum(startY - eClassOffset[:,0], margin)) / len(eClassOffset)+ \
+                        torch.sum(torch.maximum(endY - eClassOffset[:, 1], margin)) / len(eClassOffset)
+
+        shapeLimit = torch.sum(torch.maximum(cClassCenter - cClassOffset,
+                                             torch.zeros(cClassOffset.shape, requires_grad=False).to(
+                                                 self.device))) / len(cClassOffset)
+
+        shapeLimit += torch.sum(torch.maximum(dClassCenter - dClassOffset,
+                                              torch.zeros(dClassOffset.shape, requires_grad=False).to(
+                                                  self.device))) / len(dClassOffset)
+        shapeLimit += torch.sum(torch.maximum(eClassCenter - eClassOffset,
+                                              torch.zeros(eClassOffset.shape, requires_grad=False).to(
+                                                  self.device))) / len(eClassOffset)
+
+        # # get new center
+        # softmax = nn.Softmax(dim=1)
+        # softmax = softmax(torch.cat((self.mlp4intersection(cClass), self.mlp4intersection(dClass)), dim=1))
+        # newCenter = (cClassCenter + cClassOffset) / 2 * torch.unsqueeze(softmax[:, 0], 1) + (
+        #             dClassCenter + dClassOffset) / 2 * torch.unsqueeze(softmax[:, 1], 1)
+        #
+        # # get new offset
+        # theta = (self.deepset(cClass) + self.deepset(dClass)) / 2
+        # newOffset = torch.minimum(cClassOffset - cClassCenter, dClassOffset - dClassCenter) * theta
+        # newCenter = newCenter - newOffset / 2
+        # newOffset = newCenter + newOffset
+        #
+        # # is subset
+        # margin = torch.ones(eClassCenter.shape, requires_grad=False) * self.margin
+        # margin = margin.to(self.device)
+        #
+        # leftBottomLimit = torch.sum(torch.maximum(eClassCenter - newCenter, margin)) / len(newCenter)
+        # righttopLimit = torch.sum(torch.maximum(newOffset - eClassOffset, margin)) / len(eClassOffset)
 
         return leftBottomLimit + righttopLimit
+
+    # cClass isSubSet of relation some dClass
     def nf3Loss(self, input):
         cClass = self.classEmbeddingDict(input[:, 0])
         rRelation = self.relationEmbeddingDict(input[:, 1])
@@ -210,8 +250,17 @@ class ELModel(nn.Module):
         leftBottomLimit = torch.sum(torch.maximum(dClassCenter - cClassCenter, margin)) / len(cClassCenter)
         righttopLimit = torch.sum(torch.maximum(cClassOffset - dClassOffset, margin)) / len(dClassOffset)
 
+        shapeLimit = torch.sum(torch.maximum(dClassCenter - dClassOffset,
+                                              torch.zeros(dClassOffset.shape, requires_grad=False).to(
+                                                  self.device))) / len(dClassOffset)
+
+        shapeLimit += torch.sum(torch.maximum(cClassCenter - cClassOffset,
+                                             torch.zeros(cClassOffset.shape, requires_grad=False).to(
+                                                 self.device))) / len(cClassOffset)
+
         return leftBottomLimit + righttopLimit
 
+    # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
         cClass = self.classEmbeddingDict(input[:, 1])
         rRelation = self.relationEmbeddingDict(input[:, 0])
@@ -253,27 +302,69 @@ class ELModel(nn.Module):
         dClassCenter = self.centerTransModel(dClass)
         dClassOffset = self.offsetTransModel(dClass)
 
+        # mathematical method
+        startX = torch.maximum(cClassCenter[:, 0], dClassCenter[:, 0])
+        endX = torch.minimum(cClassOffset[:, 0], dClassOffset[:, 0])
 
-        # get new center
-        softmax = nn.Softmax(dim=1)
-        softmax = softmax(torch.cat((self.mlp4intersection(cClass), self.mlp4intersection(dClass)), dim=1))
-        newCenter = cClassCenter * torch.unsqueeze(softmax[:, 0], 1) + dClassCenter * torch.unsqueeze(softmax[:, 1], 1)
+        startY = torch.maximum(cClassCenter[:, 1], dClassCenter[:, 1])
+        endY = torch.minimum(cClassOffset[:, 1], dClassOffset[:, 1])
+        margin = (torch.ones(startX.shape, requires_grad=False) * self.margin).to(self.device)
 
-        # get new offset
-        theta = (self.deepset(cClass) + self.deepset(dClass)) / 2
-        newOffset = torch.minimum(cClassOffset - cClassCenter, dClassOffset - dClassCenter) * theta
-        newOffset = newCenter + newOffset
-
-        # is subset
-        margin = torch.zeros(newCenter.shape, requires_grad=False)
-        margin = margin.to(self.device)
-
-        rightLessLeftLoss = torch.sum(torch.maximum(newOffset - newCenter, margin)) / len(newCenter)
+        zeros = (torch.zeros(startX.shape, requires_grad=False) * self.margin).to(self.device)
 
 
-        return rightLessLeftLoss
+        rightLessLeftLoss = (torch.maximum(endX - startX+margin,zeros) +\
+                            torch.maximum(endY - startY+margin,zeros ))/len(startY)
+
+
+
+
+
+
+        # # get new center
+        # softmax = nn.Softmax(dim=1)
+        # softmax = softmax(torch.cat((self.mlp4intersection(cClass), self.mlp4intersection(dClass)), dim=1))
+        # newCenter = (cClassCenter+cClassOffset)/2 * torch.unsqueeze(softmax[:, 0], 1) + (dClassCenter+dClassOffset)/2 * torch.unsqueeze(softmax[:, 1], 1)
+        #
+        # # get new offset
+        # theta = (self.deepset(cClass) + self.deepset(dClass)) / 2
+        # newOffset = torch.minimum(cClassOffset - cClassCenter, dClassOffset - dClassCenter) * theta
+        # newCenter = newCenter - newOffset/2
+        # newOffset = newCenter + newOffset/2
+        # print(softmax)
+        # #print(cClassCenter, cClassOffset, dClassCenter,dClassOffset, newCenter, newOffset )
+        #
+        # # is subset
+        # margin = (torch.ones(newCenter.shape, requires_grad=False)*self.margin).to(self.device)
+        # zeros  = (torch.zeros(newCenter.shape, requires_grad=False)*self.margin).to(self.device)
+        #
+        # rightLessLeftLoss = torch.sum(torch.maximum(newOffset - newCenter,zeros )) / len(newCenter)
+
+        shapeLoss = torch.sum(torch.maximum(cClassCenter - cClassOffset+margin,
+                                                zeros)) / len(cClassOffset)
+
+        shapeLoss += torch.sum(torch.maximum(dClassCenter - dClassOffset+margin,
+                                                     zeros)) / len(dClassOffset)
+
+        return rightLessLeftLoss+ shapeLoss
+
+    def top_loss(self, input):
+        top = self.classEmbeddingDict(input[0])
+       # print(top,'top')
+        topCenter = self.centerTransModel(top)
+        topOffset = self.offsetTransModel(top)
+
+
+        #infinity
+        inf = 1
+        margin =   torch.ones(topOffset.shape, requires_grad=False) * inf
+        return torch.sum(torch.maximum(topOffset - topCenter, margin))
+
 
     def forward(self,input):
+        # shape and length
+        lengthShapeLoss = self.lengthShapeLoss()
+
         # nf1
         nf1Data = input['nf1']
         nf1Data = nf1Data.to(self.device)
@@ -299,9 +390,16 @@ class ELModel(nn.Module):
         disJointData = disJointData.to(self.device)
         disJointLoss = self.disJointLoss(disJointData)
 
-        lengthShapeLoss = self.lengthShapeLoss()
-        print(loss1.item(),loss2.item(),loss3.item(),loss4.item(),disJointLoss.item(),lengthShapeLoss.item())
-        return loss1 + loss2 + loss3 + loss4 + disJointLoss + lengthShapeLoss
+        # top_loss
+        topData = input['top']
+        topData = topData.to(self.device)
+        topLoss = self.top_loss(topData)
+
+
+      #  print(loss1.item(),loss2.item(),loss3.item(),loss4.item(),disJointLoss.item(),topLoss.item() ,lengthShapeLoss.item())
+        print(loss1, disJointLoss)
+
+        return  loss1  + disJointLoss
 
 
 

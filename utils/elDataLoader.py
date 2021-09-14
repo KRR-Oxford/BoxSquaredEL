@@ -46,6 +46,7 @@ def load_data(filename):
                 if e == 'owl:Nothing':
                     form = 'disjoint'
 
+
                 # add the according index to data
                 data[form].append((classes[c], classes[d], classes[e]))
 
@@ -64,6 +65,7 @@ def load_data(filename):
                 if r not in relations:
                     relations[r] = len(relations)
                 data['nf4'].append((relations[r], classes[c], classes[d]))
+
             elif line.find('ObjectSomeValuesFrom') != -1:
                 # C SubClassOf R some D
                 it = line.split(' ')

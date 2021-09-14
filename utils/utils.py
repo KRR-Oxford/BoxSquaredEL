@@ -3,6 +3,7 @@ import warnings
 import pandas as pd
 import numpy as np
 from xml.etree import ElementTree as ET
+import torch
 
 BIOLOGICAL_PROCESS = 'GO:0008150'
 MOLECULAR_FUNCTION = 'GO:0003674'
@@ -208,4 +209,5 @@ class DataGenerator(object):
         else:
             self.reset()
             return self.next()
+
 

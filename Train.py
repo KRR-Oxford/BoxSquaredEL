@@ -10,7 +10,7 @@ import pandas as pd
 
 @ck.command()
 @ck.option(
-    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
+    '--data-file', '-df', default='data/data-train/family_normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
     '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v11.0.txt',
@@ -55,10 +55,19 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELModel(device,len(classes), len(relations), embedding_dim=50)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-3)
+    model = ELModel(device,len(classes), len(relations), embedding_dim=2, margin=0.1)
+    optimizer = optim.Adam(model.parameters(), lr = 1e-2)
     model.to(device)
     train(model,train_data, optimizer)
+    model.eval()
+    print(classes.keys())
+    for key in classes.keys():
+        currentClass = torch.tensor(classes[key])
+        embedding = torch.tensor(model.classEmbeddingDict(currentClass))
+        classCenter = model.centerTransModel(embedding)
+        classOffset = model.offsetTransModel(embedding)
+        print(key,classCenter, classOffset)
+
 
     #store embedding
 
@@ -68,14 +77,16 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 
 
-def train(model, data, optimizer, num_epochs=100):
+def train(model, data, optimizer, num_epochs=500):
     for epoch in range(num_epochs):
         model.train()
         loss = model(data)
         print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()
         loss.backward()
+
         optimizer.step()
+
 
 
 
