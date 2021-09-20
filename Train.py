@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO)
 import pandas as pd
 
 @ck.command()
+#family_normalized.owl
 @ck.option(
     '--data-file', '-df', default='data/data-train/family_normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
@@ -51,22 +52,23 @@ import pandas as pd
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    device = torch.device('cpu')
+    device = torch.device('cuda:0')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELModel(device,len(classes), len(relations), embedding_dim=2, margin=0.1)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-2)
-    model.to(device)
+    model = ELModel(device,len(classes), len(relations), embedding_dim=2, margin=0.001)
+    optimizer = optim.Adam(model.parameters(), lr = 1e-1)
+    model = model.to(device)
     train(model,train_data, optimizer)
     model.eval()
-    print(classes.keys())
+   # print(classes.keys())
     for key in classes.keys():
-        currentClass = torch.tensor(classes[key])
+        currentClass = torch.tensor(classes[key]).to(device)
         embedding = torch.tensor(model.classEmbeddingDict(currentClass))
         classCenter = model.centerTransModel(embedding)
         classOffset = model.offsetTransModel(embedding)
         print(key,classCenter, classOffset)
+   # print(model.classEmbeddingDict(torch.tensor(range(8))))
 
 
     #store embedding
@@ -77,19 +79,16 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 
 
-def train(model, data, optimizer, num_epochs=500):
+def train(model, data, optimizer, num_epochs=100, batch = 1):
+    model.train()
     for epoch in range(num_epochs):
-        model.train()
+        model.zero_grad()
         loss = model(data)
         print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()
         loss.backward()
 
         optimizer.step()
-
-
-
-
 
 if __name__ == '__main__':
     main()

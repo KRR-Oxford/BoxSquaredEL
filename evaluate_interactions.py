@@ -8,7 +8,7 @@ import math
 import os
 from collections import deque
 
-from utils import Ontology, FUNC_DICT
+from utils.utils import Ontology, FUNC_DICT
 
 from sklearn.manifold import TSNE
 from sklearn.metrics import roc_curve, auc, matthews_corrcoef

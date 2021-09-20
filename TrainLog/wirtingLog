@@ -1,0 +1,2 @@
+2021/09/14:
+I find that the code will not always successfully running. The disjoint loss will stuck. I set the lr=0.1 will make it better
