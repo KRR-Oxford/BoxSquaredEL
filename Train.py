@@ -10,8 +10,9 @@ import pandas as pd
 
 @ck.command()
 #family_normalized.owl
+#yeast-classes-normalized.owl
 @ck.option(
-    '--data-file', '-df', default='data/data-train/family_normalized.owl',
+    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
     '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v11.0.txt',
@@ -56,7 +57,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELModel(device,len(classes), len(relations), embedding_dim=2, margin=0.001)
+    model = ELModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
     optimizer = optim.Adam(model.parameters(), lr = 1e-1)
     model = model.to(device)
     train(model,train_data, optimizer)
@@ -64,11 +65,22 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
    # print(classes.keys())
     for key in classes.keys():
         currentClass = torch.tensor(classes[key]).to(device)
-        embedding = torch.tensor(model.classEmbeddingDict(currentClass))
-        classCenter = model.centerTransModel(embedding)
-        classOffset = model.offsetTransModel(embedding)
-        print(key,classCenter, classOffset)
+        embedding = model.classEmbeddingDict(currentClass).clone().detach().cpu().numpy()
+        # classCenter = model.centerTransModel(embedding)
+        # classOffset = model.offsetTransModel(embedding)
+    #    print(embedding)
    # print(model.classEmbeddingDict(torch.tensor(range(8))))
+
+    cls_file = 'data/classEmbed.pkl'
+    rel_file = 'data/relationEmbed.pkl'
+
+    df = pd.DataFrame(
+        {'classes': list(classes.keys()), 'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    df.to_pickle(cls_file)
+
+    df = pd.DataFrame(
+        {'relations': list(relations.keys()), 'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    df.to_pickle(rel_file)
 
 
     #store embedding
@@ -79,7 +91,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 
 
-def train(model, data, optimizer, num_epochs=100, batch = 1):
+def train(model, data, optimizer, num_epochs=1000, batch = 1):
     model.train()
     for epoch in range(num_epochs):
         model.zero_grad()

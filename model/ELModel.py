@@ -1,86 +1,86 @@
 import torch.nn as nn
 import torch
 
-'''
-Transformer the embedding to the left-bottom point of the box
-'''
-class CenterTransModel(nn.Module):
-    def __init__(self, embedding_dim):
-        super(CenterTransModel, self).__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, 8 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(8 * embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, embedding_dim),
-            nn.Sigmoid(),
-        )
-
-    def forward(self,input):
-        return self.mlp(input)*5
-
-'''
-Transformer the embedding to the right-top point of box
-'''
-class OffsetTransModel(nn.Module):
-    def __init__(self, embedding_dim):
-        super(OffsetTransModel, self).__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, 8  * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(8 * embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, embedding_dim),
-            nn.Sigmoid(),
-        )
-    def forward(self,input):
-        return self.mlp(input)*5
-
-'''
-for intersection part
-'''
-class Deepset(nn.Module):
-    def __init__(self, embedding_dim):
-        super(Deepset, self).__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(embedding_dim, 2 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(2 * embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, 2 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(2 * embedding_dim, 1),
-            nn.Tanh(),
-            nn.Dropout(0.3)
-        )
-
-    def forward(self, input):
-        return self.mlp(input)
-
-'''
-for intersection part
-'''
-class MLP4Intersection(nn.Module):
-    def __init__(self, embedding_dim):
-        super(MLP4Intersection, self).__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(embedding_dim, 2 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(2 * embedding_dim, 4 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(4 * embedding_dim, 2 * embedding_dim),
-            nn.Tanh(),
-            nn.Linear(2 * embedding_dim, 1),
-            nn.Tanh(),
-            nn.Dropout(0.3)
-        )
-
-    def forward(self, input):
-        return self.mlp(input)
+# '''
+# Transformer the embedding to the left-bottom point of the box
+# '''
+# class CenterTransModel(nn.Module):
+#     def __init__(self, embedding_dim):
+#         super(CenterTransModel, self).__init__()
+#         self.mlp = nn.Sequential(
+#             nn.Linear(embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, 8 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(8 * embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, embedding_dim),
+#             nn.Sigmoid(),
+#         )
+#
+#     def forward(self,input):
+#         return self.mlp(input)*5
+#
+# '''
+# Transformer the embedding to the right-top point of box
+# '''
+# class OffsetTransModel(nn.Module):
+#     def __init__(self, embedding_dim):
+#         super(OffsetTransModel, self).__init__()
+#         self.mlp = nn.Sequential(
+#             nn.Linear(embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, 8  * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(8 * embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, embedding_dim),
+#             nn.Sigmoid(),
+#         )
+#     def forward(self,input):
+#         return self.mlp(input)*5
+#
+# '''
+# for intersection part
+# '''
+# class Deepset(nn.Module):
+#     def __init__(self, embedding_dim):
+#         super(Deepset, self).__init__()
+#         self.mlp = nn.Sequential(
+#             nn.Linear(embedding_dim, 2 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(2 * embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, 2 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(2 * embedding_dim, 1),
+#             nn.Tanh(),
+#             nn.Dropout(0.3)
+#         )
+#
+#     def forward(self, input):
+#         return self.mlp(input)
+#
+# '''
+# for intersection part
+# '''
+# class MLP4Intersection(nn.Module):
+#     def __init__(self, embedding_dim):
+#         super(MLP4Intersection, self).__init__()
+#         self.mlp = nn.Sequential(
+#             nn.Linear(embedding_dim, 2 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(2 * embedding_dim, 4 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(4 * embedding_dim, 2 * embedding_dim),
+#             nn.Tanh(),
+#             nn.Linear(2 * embedding_dim, 1),
+#             nn.Tanh(),
+#             nn.Dropout(0.3)
+#         )
+#
+#     def forward(self, input):
+#         return self.mlp(input)
 
 class ELModel(nn.Module):
     '''
@@ -97,54 +97,27 @@ class ELModel(nn.Module):
         self.classNum = classNum
         self.relationNum = relationNum
         self.device = device
-        self.classEmbeddingDict = nn.Embedding(classNum,embedding_dim)
-        self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
-        self.centerTransModel = CenterTransModel(embedding_dim)
-        self.offsetTransModel = OffsetTransModel(embedding_dim)
-
-        self.deepset = Deepset(embedding_dim)
-        self.mlp4intersection = MLP4Intersection(embedding_dim)
-
-
-    #Limit length of vector normalized to 1
-    #limit right-top is bigger than left-bottom
-    def lengthShapeLoss(self):
-        #classes length
-        cClass = self.classEmbeddingDict(torch.tensor(range(self.classNum)).to(self.device))
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
-        classLengthLimit = torch.sum(torch.abs(torch.sum(cClassCenter * cClassCenter,1) - 1)) / len(cClassCenter)
-        classLengthLimit += torch.sum(torch.abs(torch.sum(cClassOffset * cClassOffset,1) - 1))/ len(cClassOffset)
-
-        # classes box
-        classBoxLimit = torch.sum(torch.maximum(cClassCenter - cClassOffset, torch.zeros(cClassOffset.shape,requires_grad=False).to(self.device))) / len(cClassOffset)
-
-        # relation length
-        cRelation = self.relationEmbeddingDict(torch.tensor(range(self.relationNum)).to(self.device))
-        cRelationCenter = self.centerTransModel(cRelation)
-        cRelationOffset = self.offsetTransModel(cRelation)
-        relationLengthLimit = torch.sum(torch.abs(torch.sum(cRelationCenter * cRelationCenter,1) - 1) )/ len(cRelationCenter)
-        relationLengthLimit += torch.sum(torch.abs(torch.sum(cRelationOffset * cRelationOffset,1) - 1)) / len(cRelationOffset)
-
-        # relation box
-        relationBoxLimit = torch.sum(torch.maximum(cRelationCenter - cRelationOffset, torch.zeros(cRelationOffset.shape,requires_grad=False).to(self.device))) / len(
-            cRelationOffset)
-
-
-        return classBoxLimit  + relationBoxLimit + classLengthLimit + relationLengthLimit
-
+        self.classEmbeddingDict = nn.Embedding(classNum,embedding_dim*2)
+        self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim*2)
+        self.embedding_dim = embedding_dim
+        # self.centerTransModel = CenterTransModel(embedding_dim)
+        # self.offsetTransModel = OffsetTransModel(embedding_dim)
+        #
+        # self.deepset = Deepset(embedding_dim)
+        # self.mlp4intersection = MLP4Intersection(embedding_dim)
 
     # cClass isSubSetof dClass
     def nf1Loss(self,input):
+
         cClass = self.classEmbeddingDict(input[:,0])
         dClass = self.classEmbeddingDict(input[:,1])
 
         #get the center and offset of the box of the embedding
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
+        cClassCenter = cClass[:,0:self.embedding_dim]
+        cClassOffset = cClass[:,self.embedding_dim:2*self.embedding_dim]
 
-        dClassCenter = self.centerTransModel(dClass)
-        dClassOffset = self.offsetTransModel(dClass)
+        dClassCenter = dClass[:,0:self.embedding_dim]
+        dClassOffset = dClass[:,self.embedding_dim:2*self.embedding_dim]
 
         margin = (torch.ones(cClassOffset.shape, requires_grad=False) * self.margin).to(self.device)
 
@@ -167,14 +140,15 @@ class ELModel(nn.Module):
         dClass = self.classEmbeddingDict(input[:, 1])
         eClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
+        cClassCenter = cClass[:, 0:self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        dClassCenter = self.centerTransModel(dClass)
-        dClassOffset = self.offsetTransModel(dClass)
+        dClassCenter = dClass[:, 0:self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        eClassCenter = self.centerTransModel(eClass)
-        eClassOffset = self.offsetTransModel(eClass)
+
+        eClassCenter = eClass[:, 0:self.embedding_dim]
+        eClassOffset = eClass[:, self.embedding_dim:2 * self.embedding_dim]
 
         startAll = torch.maximum(cClassCenter, dClassCenter)
         endAll = torch.minimum(cClassOffset, dClassOffset)
@@ -225,14 +199,15 @@ class ELModel(nn.Module):
         rRelation = self.relationEmbeddingDict(input[:, 1])
         dClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
+        cClassCenter = cClass[:, 0:self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        dClassCenter = self.centerTransModel(dClass)
-        dClassOffset = self.offsetTransModel(dClass)
+        dClassCenter = dClass[:, 0:self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        rRelationCenter = self.centerTransModel(rRelation)
-        rRelationOffset = self.offsetTransModel(rRelation)
+        rRelationCenter = rRelation[:, 0:self.embedding_dim]
+        rRelationOffset = rRelation[:, self.embedding_dim:2 * self.embedding_dim]
+
 
         #get new center
         cClassCenter = cClassCenter + rRelationCenter
@@ -260,14 +235,14 @@ class ELModel(nn.Module):
         rRelation = self.relationEmbeddingDict(input[:, 0])
         dClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
+        cClassCenter = cClass[:, 0:self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        dClassCenter = self.centerTransModel(dClass)
-        dClassOffset = self.offsetTransModel(dClass)
+        dClassCenter = dClass[:, 0:self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        rRelationCenter = self.centerTransModel(rRelation)
-        rRelationOffset = self.offsetTransModel(rRelation)
+        rRelationCenter = rRelation[:, 0:self.embedding_dim]
+        rRelationOffset = rRelation[:, self.embedding_dim:2 * self.embedding_dim]
 
         #get new center
         dClassCenter = dClassCenter + rRelationCenter
@@ -288,12 +263,12 @@ class ELModel(nn.Module):
         cClass = self.classEmbeddingDict(input[:, 0])
         dClass = self.classEmbeddingDict(input[:, 1])
 
+        cClassCenter = cClass[:, 0:self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        cClassCenter = self.centerTransModel(cClass)
-        cClassOffset = self.offsetTransModel(cClass)
+        dClassCenter = dClass[:, 0:self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
 
-        dClassCenter = self.centerTransModel(dClass)
-        dClassOffset = self.offsetTransModel(dClass)
 
         # mathematical method
         startAll = torch.maximum(cClassCenter, dClassCenter)
@@ -344,10 +319,11 @@ class ELModel(nn.Module):
 
     def top_loss(self, input):
         top = self.classEmbeddingDict(input[0])
-        print('top',top)
+       # print('top',top)
        # print(top,'top')
-        topCenter = self.centerTransModel(top)
-        topOffset = self.offsetTransModel(top)
+        topCenter = top[0:self.embedding_dim]
+        topOffset = top[self.embedding_dim:2 * self.embedding_dim]
+
 
 
         #infinity
@@ -358,8 +334,7 @@ class ELModel(nn.Module):
 
 
     def forward(self,input):
-        # shape and length
-        lengthShapeLoss = self.lengthShapeLoss()
+
 
         # nf1
         nf1Data = input['nf1']

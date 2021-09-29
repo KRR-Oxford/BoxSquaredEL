@@ -31,10 +31,10 @@ logging.basicConfig(level=logging.INFO)
     '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
+    '--cls-embeds-file', '-cef', default='data/classEmbed.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/rel_embeddings.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationEmbed.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -49,29 +49,29 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     org = 'human'
     go = Ontology(go_file, with_rels=False)
     pai = params_array_index
-    if params_array_index != -1:
-        orgs = ['human', 'yeast']
-        sizes = [50, 100, 200, 400]
-        margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
-        reg_norms = [1,]
-        reg_norm = reg_norms[0]
-        # params_array_index //= 2
-        margin = margins[params_array_index % 5]
-        params_array_index //= 5
-        embedding_size = sizes[params_array_index % 4]
-        params_array_index //= 4
-        org = orgs[params_array_index % 2]
-        print('Params:', org, embedding_size, margin, reg_norm)
-        if org == 'human':
-            train_data_file = f'data/data-train/9606.protein.links.v10.5.txt'
-            valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
-            test_data_file = f'data/data-test/9606.protein.links.v10.5.txt'
-        cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
-        loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
-        if os.path.exists(loss_file):
-            df = pd.read_csv(loss_file)
-            print('Loss:', df['loss'].values[-1])
+    # if params_array_index != -1:
+    #     orgs = ['human', 'yeast']
+    #     sizes = [50, 100, 200, 400]
+    #     margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
+    #     reg_norms = [1,]
+    #     reg_norm = reg_norms[0]
+    #     # params_array_index //= 2
+    #     margin = margins[params_array_index % 5]
+    #     params_array_index //= 5
+    #     embedding_size = sizes[params_array_index % 4]
+    #     params_array_index //= 4
+    #     org = orgs[params_array_index % 2]
+    #     print('Params:', org, embedding_size, margin, reg_norm)
+    #     if org == 'human':
+    #         train_data_file = f'data/data-train/9606.protein.links.v10.5.txt'
+    #         valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
+    #         test_data_file = f'data/data-test/9606.protein.links.v10.5.txt'
+    #     cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+    #     rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+    #     loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
+    #     if os.path.exists(loss_file):
+    #         df = pd.read_csv(loss_file)
+    #         print('Loss:', df['loss'].values[-1])
 
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -116,6 +116,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     #     trlabels[r][c, d] = 1000
 
     test_data = load_data(test_data_file, classes, relations)
+    print(test_data_file, classes, relations)
     top1 = 0
     top10 = 0
     top100 = 0
@@ -130,6 +131,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     franks = {}
     eval_data = test_data
     n = len(eval_data)
+
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
