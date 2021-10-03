@@ -1,10 +1,15 @@
 import pickle as pl
-a = pl.load(open('../data/relationEmbed.pkl','rb'))
-b = pl.load(open('../data/rel_embeddings.pkl','rb'))
-for ema, emb in zip(a['embeddings'],b['embeddings']):
-    if len(ema) != len(emb):
-        print(len(ema))
+import numpy as np
+a = pl.load(open('../data/ballClassEmbed.pkl','rb'))
+b = pl.load(open('../data/cls_embeddings.pkl','rb'))
+index =0
+print     (   np.sum(a['embeddings'][index]*b['embeddings'][index]) / (np.linalg.norm(a['embeddings'][index])*np.linalg.norm(b['embeddings'][index]) ))
+print(a['embeddings'][index],b['embeddings'][index])
+# for ema, emb in zip(a['embeddings'],b['embeddings']):
+#     if len(ema) != len(emb):
+#         print(len(ema))
+#
+# for ema, emb in zip(a['classes'],b['classes']):
+#     if ema != emb:
+#         print(emb)
 
-for ema, emb in zip(a['relations'],b['relations']):
-    #if ema != emb:
-    print(emb)

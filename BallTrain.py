@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click as ck
 import torch.optim as optim
-from ELModel import ELModel
+from ElBallModel import  ELBallModel
 from utils.elDataLoader import load_data, load_valid_data
 import logging
 import torch
@@ -53,12 +53,12 @@ import pandas as pd
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    device = torch.device('cuda:0')
+    device = torch.device('cpu')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELModel(device,len(classes), len(relations), embedding_dim=50, margin=  -0.1)
-    optimizer = optim.Adam(model.parameters(), lr = 1e-3)
+    model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
+    optimizer = optim.Adam(model.parameters(), lr = 0.0005)
     model = model.to(device)
     train(model,train_data, optimizer)
     model.eval()
@@ -71,8 +71,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
    # print(model.classEmbeddingDict(torch.tensor(range(8))))
 
-    cls_file = 'data/classEmbed.pkl'
-    rel_file = 'data/relationEmbed.pkl'
+    cls_file = 'data/ballClassEmbed.pkl'
+    rel_file = 'data/ballRelationEmbed.pkl'
 
     df = pd.DataFrame(
         {'classes': list(classes.keys()), 'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
@@ -89,9 +89,9 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 
 
+#ballRelationEmbed
 
-
-def train(model, data, optimizer, num_epochs=1000, batch = 1):
+def train(model, data, optimizer, num_epochs=1000):
     model.train()
     for epoch in range(num_epochs):
         model.zero_grad()

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import click as ck
-import numpy
 import numpy as np
 import pandas as pd
 import logging
@@ -18,6 +17,7 @@ from scipy.stats import rankdata
 
 logging.basicConfig(level=logging.INFO)
 
+
 @ck.command()
 @ck.option(
     '--go-file', '-gf', default='data/go.obo',
@@ -28,14 +28,20 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='')
+
 @ck.option(
     '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
+#ballClassEmbed.pkl
+#cls_embeddings.pkl
+
+#ballRelationEmbed.pkl
+#rel_embeddings.pkl
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/classEmbed.pkl',
+    '--cls-embeds-file', '-cef', default='data/ballClassEmbed.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationEmbed.pkl',
+    '--rel-embeds-file', '-ref', default='data/ballRelationEmbed.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -50,43 +56,38 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     org = 'human'
     go = Ontology(go_file, with_rels=False)
     pai = params_array_index
-    # if params_array_index != -1:
-    #     orgs = ['human', 'yeast']
-    #     sizes = [50, 100, 200, 400]
-    #     margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
-    #     reg_norms = [1,]
-    #     reg_norm = reg_norms[0]
-    #     # params_array_index //= 2
-    #     margin = margins[params_array_index % 5]
-    #     params_array_index //= 5
-    #     embedding_size = sizes[params_array_index % 4]
-    #     params_array_index //= 4
-    #     org = orgs[params_array_index % 2]
-    #     print('Params:', org, embedding_size, margin, reg_norm)
-    #     if org == 'human':
-    #         train_data_file = f'data/data-train/9606.protein.links.v10.5.txt'
-    #         valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
-    #         test_data_file = f'data/data-test/9606.protein.links.v10.5.txt'
-    #     cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-    #     rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
-    #     loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
-    #     if os.path.exists(loss_file):
-    #         df = pd.read_csv(loss_file)
-    #         print('Loss:', df['loss'].values[-1])
-
+    if params_array_index != -1:
+        orgs = ['human', 'yeast']
+        sizes = [50, 100, 200, 400]
+        margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
+        reg_norms = [1, ]
+        reg_norm = reg_norms[0]
+        # params_array_index //= 2
+        margin = margins[params_array_index % 5]
+        params_array_index //= 5
+        embedding_size = sizes[params_array_index % 4]
+        params_array_index //= 4
+        org = orgs[params_array_index % 2]
+        print('Params:', org, embedding_size, margin, reg_norm)
+        if org == 'human':
+            train_data_file = f'data/data-train/9606.protein.links.v10.5.txt'
+            valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
+            test_data_file = f'data/data-test/9606.protein.links.v10.5.txt'
+        cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
+        if os.path.exists(loss_file):
+            df = pd.read_csv(loss_file)
+            print('Loss:', df['loss'].values[-1])
 
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df)
     nb_relations = len(rel_df)
 
-    #classes
     embeds_list = cls_df['embeddings'].values
     classes = {v: k for k, v in enumerate(cls_df['classes'])}
-
-    #relation
     rembeds_list = rel_df['embeddings'].values
-
     relations = {v: k for k, v in enumerate(rel_df['relations'])}
     size = len(embeds_list[0])
     embeds = np.zeros((nb_classes, size), dtype=np.float32)
@@ -96,28 +97,17 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
-
-    embedding_dim = int(len(embeds[0]) /2)
-
-    # rs represent the radius, now i change to the right-top point
-
-    rs = embeds[:, :embedding_dim]
-    embeds = embeds[:, embedding_dim:]
-
-
-    #得到蛋白质的box
+    rs = np.abs(embeds[:, -1]).reshape(-1, 1)
+    embeds = embeds[:, :-1]
     prot_index = list(proteins.values())
     prot_rs = rs[prot_index, :]
     prot_embeds = embeds[prot_index, :]
-
     prot_dict = {v: k for k, v in enumerate(prot_index)}
 
-    # relation
     rsize = len(rembeds_list[0])
     rembeds = np.zeros((nb_relations, rsize), dtype=np.float32)
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
-
     train_data = load_data(train_data_file, classes, relations)
     valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
@@ -133,7 +123,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     #     trlabels[r][c, d] = 1000
 
     test_data = load_data(test_data_file, classes, relations)
-    #print(test_data_file, classes, relations)
     top1 = 0
     top10 = 0
     top100 = 0
@@ -148,7 +137,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     franks = {}
     eval_data = test_data
     n = len(eval_data)
-
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
@@ -157,89 +145,26 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if r not in preds:
                 preds[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.float32)
             labels[r][c, d] = 1
-            #蛋白质左下（原中心）
-            ec_old = prot_embeds[c, :].reshape(1,-1)
-          #  print(prot_embeds)
+            ec_old = prot_embeds[c, :]
+            rc = prot_rs[c, :]
+            er = rembeds[r, :]
+            ec = er + ec_old
 
-            #蛋白质右上（原半径）
-            rc_old = prot_rs[c, :].reshape(1,-1)
+            #print(prot_embeds)
 
-
-
-            #relation左下
-            er = rembeds[r, :].reshape(1,-1)
-         #   rr = rembeds[r, embedding_dim:].reshape(1,-1)
-
-            ec = er+ec_old
-            rc = er+ rc_old
-
-            centerPro = (prot_embeds+prot_rs)/2
-
-            centerClass = (rc + ec) / 2
-
-            proLenth = (prot_embeds - prot_rs)
-            ClassLenth = (rc - ec)
-
-
-            # startAll = np.maximum(prot_embeds, ec)
-            # endAll = np.minimum(prot_rs, rc)
-            # edges =  np.maximum(np.zeros(endAll.shape),endAll-startAll)
-            # res = []
-            # for edge in edges:
-            #     a = 1
-            #     for ele in edge:
-            #         a*=ele
-            #     if a!=0:
-            #         print(a)
-            #     res.append(a)
-            #print((centerClass).shape)
-           # print(np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2 )
-
-            #1.圆的距离
-
-            #res =  np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2
-
-            # #2.cosine距离
-            # dis1 = np.linalg.norm(prot_embeds,axis=1)+np.linalg.norm(ec,axis=1)
-            # dis2 = np.linalg.norm(rc,axis=1)+np.linalg.norm(prot_rs,axis=1)
-            # res = -np.sum(prot_embeds * ec,axis=1)/dis1 - np.sum(rc * prot_rs,axis=1)/dis2
-
-            # #3.欧拉距离
-            #res = np.linalg.norm(prot_embeds-rc, axis=1)+np.linalg.norm(prot_rs-ec, axis=1)
-
-
-            # 4.box 相交
-            # startAll = np.maximum(prot_embeds, ec)
-            # endAll = np.minimum(prot_rs, rc)
-            # res = -np.sum(np.maximum(np.ones(endAll.shape)*-0.1,endAll-startAll+np.ones(endAll.shape)*0.1),axis=1)
-
-
-
-
-         #   print(len(startAll))
-
-            # #圆心间距离
-            # dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
-            # dst = dst.reshape(-1, 1)
+            dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
+            dst = dst.reshape(-1, 1)
             # if rc > 0:
             #     overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
             # else:
             #     overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
-            
+
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
             # res = (overlap + 1 / np.exp(edst)) / 2
-
-            # 圆心间距离 - 圆的半径和
-            # 有交集就是0
-            #res = np.maximum(0, dst - rc - prot_rs - margin)
-
-
-
-
-            #res = np.sqrt(np.sum((edges*edges),axis=1))
+            res = dst #- rc - prot_rs
+            res = res.flatten()
             preds[r][c, :] = res
             index = rankdata(res, method='average')
-
             rank = index[d]
             if rank == 1:
                 top1 += 1
@@ -277,16 +202,17 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
     rank_auc = compute_rank_roc(ranks, len(proteins))
     frank_auc = compute_rank_roc(franks, len(proteins))
-    
+
     print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
     print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
-    
-    
+
+
 def compute_roc(labels, preds):
     # Compute ROC curve and ROC area for each class
     fpr, tpr, _ = roc_curve(labels.flatten(), preds.flatten())
     roc_auc = auc(fpr, tpr)
     return roc_auc
+
 
 def compute_rank_roc(ranks, n_prots):
     auc_x = list(ranks.keys())
@@ -301,6 +227,7 @@ def compute_rank_roc(ranks, n_prots):
     auc_y.append(1)
     auc = np.trapz(auc_y, auc_x) / n_prots
     return auc
+
 
 def compute_fmax(labels, preds):
     fmax = 0.0
@@ -328,7 +255,8 @@ def compute_fmax(labels, preds):
             tmax = t
             tpmax, fpmax, fnmax = tp, fp, fn
     return fmax, pmax, rmax, tmax, tpmax, fpmax, fnmax
-    
+
+
 def load_data(data_file, classes, relations):
     data = []
     rel = f'<http://interacts>'
@@ -342,14 +270,17 @@ def load_data(data_file, classes, relations):
             data.append((id1, rel, id2))
     return data
 
+
 def is_inside(ec, rc, ed, rd):
     dst = np.linalg.norm(ec - ed)
     return dst + rc <= rd
 
+
 def is_intersect(ec, rc, ed, rd):
     dst = np.linalg.norm(ec - ed)
     return dst <= rc + rd
-    
+
+
 def sim(ec, rc, ed, rd):
     dst = np.linalg.norm(ec - ed)
     overlap = max(0, (2 * rc - max(dst + rc - rd, 0)) / (2 * rc))
@@ -357,6 +288,5 @@ def sim(ec, rc, ed, rd):
     res = (overlap + 1 / np.exp(edst)) / 2
 
 
-    
 if __name__ == '__main__':
     main()

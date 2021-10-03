@@ -97,8 +97,15 @@ class ELModel(nn.Module):
         self.classNum = classNum
         self.relationNum = relationNum
         self.device = device
-        self.classEmbeddingDict = nn.Embedding(classNum,embedding_dim*2)
-        self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim*2)
+        self.classEmbeddingDict = nn.Embedding(classNum, embedding_dim*2)
+        nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
+        self.classEmbeddingDict.weight.data /= torch.linalg.norm(self.classEmbeddingDict.weight, axis=1).reshape(-1, 1)
+
+        self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
+        nn.init.uniform_(self.relationEmbeddingDict.weight, a=-1, b=1)
+        self.relationEmbeddingDict.weight.data /= torch.linalg.norm(
+            self.relationEmbeddingDict.weight, axis=1).reshape(-1, 1)
+
         self.embedding_dim = embedding_dim
         # self.centerTransModel = CenterTransModel(embedding_dim)
         # self.offsetTransModel = OffsetTransModel(embedding_dim)
@@ -113,11 +120,11 @@ class ELModel(nn.Module):
         dClass = self.classEmbeddingDict(input[:,1])
 
         #get the center and offset of the box of the embedding
-        cClassCenter = cClass[:,0:self.embedding_dim]
-        cClassOffset = cClass[:,self.embedding_dim:2*self.embedding_dim]
+        cClassCenter = cClass[:, :self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:]
 
-        dClassCenter = dClass[:,0:self.embedding_dim]
-        dClassOffset = dClass[:,self.embedding_dim:2*self.embedding_dim]
+        dClassCenter = dClass[:, :self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:]
 
         margin = (torch.ones(cClassOffset.shape, requires_grad=False) * self.margin).to(self.device)
 
@@ -131,7 +138,7 @@ class ELModel(nn.Module):
 
         shapeLimit += torch.sum(torch.maximum(dClassCenter - dClassOffset+margin,
                                                      zeros)) / len(dClassOffset)
-        print(leftBottomLimit,righttopLimit,shapeLimit)
+        #print(leftBottomLimit,righttopLimit,shapeLimit)
         return leftBottomLimit + righttopLimit + shapeLimit
 
     #cClass and dCLass isSubSetof eClass
@@ -140,25 +147,22 @@ class ELModel(nn.Module):
         dClass = self.classEmbeddingDict(input[:, 1])
         eClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = cClass[:, 0:self.embedding_dim]
-        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
+        cClassCenter = cClass[:, :self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:]
 
-        dClassCenter = dClass[:, 0:self.embedding_dim]
-        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
+        dClassCenter = dClass[:, :self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:]
 
 
-        eClassCenter = eClass[:, 0:self.embedding_dim]
-        eClassOffset = eClass[:, self.embedding_dim:2 * self.embedding_dim]
+        eClassCenter = eClass[:, :self.embedding_dim]
+        eClassOffset = eClass[:, self.embedding_dim:]
 
         startAll = torch.maximum(cClassCenter, dClassCenter)
         endAll = torch.minimum(cClassOffset, dClassOffset)
 
-        margin = (torch.zeros(endAll.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(endAll.shape, requires_grad=False) * self.margin).to(self.device)
 
         zeros = (torch.zeros(endAll.shape, requires_grad=False) * self.margin).to(self.device)
-        # print(endX,startX)
-
-
 
         leftBottomLimit = torch.sum(torch.maximum(eClassCenter - startAll+margin,zeros)) / len(eClassCenter)
 
@@ -199,22 +203,21 @@ class ELModel(nn.Module):
         rRelation = self.relationEmbeddingDict(input[:, 1])
         dClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = cClass[:, 0:self.embedding_dim]
-        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
+        cClassCenter = cClass[:, :self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:]
 
-        dClassCenter = dClass[:, 0:self.embedding_dim]
-        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
+        dClassCenter = dClass[:, :self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:]
 
-        rRelationCenter = rRelation[:, 0:self.embedding_dim]
-        rRelationOffset = rRelation[:, self.embedding_dim:2 * self.embedding_dim]
+        rRelationCenter = rRelation[:, :self.embedding_dim]
+
 
 
         #get new center
         cClassCenter = cClassCenter + rRelationCenter
 
         #get new offset
-        tempOffset = (cClassOffset - cClassCenter) + (rRelationOffset - rRelationCenter)
-        cClassOffset = cClassCenter + tempOffset
+        cClassOffset = cClassOffset + rRelationCenter
 
         # is subset
         margin = (torch.ones(dClassCenter.shape, requires_grad=False) * self.margin).to(self.device)
@@ -227,13 +230,14 @@ class ELModel(nn.Module):
 
         shapeLimit += torch.sum(torch.maximum(cClassCenter - cClassOffset+ margin,zeros)) / len(cClassOffset)
 
-        return leftBottomLimit + righttopLimit
+        return leftBottomLimit + righttopLimit + shapeLimit
 
     # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
         cClass = self.classEmbeddingDict(input[:, 1])
         rRelation = self.relationEmbeddingDict(input[:, 0])
         dClass = self.classEmbeddingDict(input[:, 2])
+
 
         cClassCenter = cClass[:, 0:self.embedding_dim]
         cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
@@ -242,13 +246,11 @@ class ELModel(nn.Module):
         dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
 
         rRelationCenter = rRelation[:, 0:self.embedding_dim]
-        rRelationOffset = rRelation[:, self.embedding_dim:2 * self.embedding_dim]
 
         #get new center
         dClassCenter = dClassCenter + rRelationCenter
         #get new offset
-        tempOffset = (dClassOffset - dClassCenter) + (rRelationOffset - rRelationCenter)
-        dClassOffset = dClassCenter + tempOffset
+        dClassOffset = dClassOffset + rRelationCenter
 
         # is subset
         margin = (torch.ones(dClassCenter.shape, requires_grad=False) * self.margin).to(self.device)
@@ -257,7 +259,11 @@ class ELModel(nn.Module):
         leftBottomLimit = torch.sum(torch.maximum(dClassCenter - cClassCenter+ margin,zeros)) / len(cClassCenter)
         righttopLimit = torch.sum(torch.maximum(cClassOffset - dClassOffset+ margin,zeros)) / len(dClassOffset)
 
-        return leftBottomLimit + righttopLimit
+        shapeLimit = torch.sum(torch.maximum(dClassCenter - dClassOffset + margin, zeros)) / len(dClassOffset)
+
+        shapeLimit += torch.sum(torch.maximum(cClassCenter - cClassOffset + margin, zeros)) / len(cClassOffset)
+
+        return leftBottomLimit + righttopLimit + shapeLimit
 
     def disJointLoss(self, input):
         cClass = self.classEmbeddingDict(input[:, 0])
@@ -273,17 +279,12 @@ class ELModel(nn.Module):
         # mathematical method
         startAll = torch.maximum(cClassCenter, dClassCenter)
         endAll   = torch.minimum(cClassOffset, dClassOffset)
-        # startX = torch.maximum(cClassCenter[:, 0], dClassCenter[:, 0])
-        # endX = torch.minimum(cClassOffset[:, 0], dClassOffset[:, 0])
-        #
-        # startY = torch.maximum(cClassCenter[:, 1], dClassCenter[:, 1])
-        # endY = torch.minimum(cClassOffset[:, 1], dClassOffset[:, 1])
+
         margin = (torch.ones(endAll.shape, requires_grad=False) * self.margin).to(self.device)
 
         zeros = (torch.zeros(endAll.shape, requires_grad=False) * self.margin).to(self.device)
-       # print(endX,startX)
 
-        rightLessLeftLoss = torch.sum((torch.maximum(endAll - startAll+margin,zeros)))/len(endAll)
+        rightLessLeftLoss = torch.sum((torch.maximum(endAll - startAll + margin,zeros)))/len(endAll)
 
 
 
@@ -332,6 +333,44 @@ class ELModel(nn.Module):
         zeros = (torch.zeros(topOffset.shape, requires_grad=False).to(self.device)) * inf
         return torch.sum(torch.maximum( topCenter-topOffset+ margin,zeros))
 
+    # cClass is_NOT_SubSet of relation some dClass
+    def neg_loss(self, input):
+        cClass = self.classEmbeddingDict(input[:, 0])
+        rRelation = self.relationEmbeddingDict(input[:, 1])
+        dClass = self.classEmbeddingDict(input[:, 2])
+
+        cClassCenter = cClass[:, 0:self.embedding_dim]
+        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
+
+        dClassCenter = dClass[:, 0:self.embedding_dim]
+        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
+
+        rRelationCenter = rRelation[:, 0:self.embedding_dim]
+
+        # get new center
+        cClassCenter = cClassCenter + rRelationCenter
+
+        # get new offset
+        cClassOffset = cClassOffset + rRelationCenter
+
+        startAll = torch.maximum(cClassCenter, dClassCenter)
+        endAll = torch.minimum(cClassOffset, dClassOffset)
+
+        andBox = torch.sum(endAll-startAll)
+        cBox   = torch.sum(cClassOffset - cClassCenter)
+
+        negLoss = torch.max(torch.tensor(0).to(self.device), andBox-cBox)
+
+        # is subset
+
+        margin = (torch.ones(dClassCenter.shape, requires_grad=False) * self.margin).to(self.device)
+        zeros = (torch.zeros(dClassCenter.shape, requires_grad=False) * self.margin).to(self.device)
+
+        shapeLimit = torch.sum(torch.maximum(dClassCenter - dClassOffset + margin, zeros)) / len(dClassOffset)
+
+        shapeLimit += torch.sum(torch.maximum(cClassCenter - cClassOffset + margin, zeros)) / len(cClassOffset)
+
+        return negLoss + shapeLimit
 
     def forward(self,input):
 
@@ -366,11 +405,16 @@ class ELModel(nn.Module):
         topData = topData.to(self.device)
         topLoss = self.top_loss(topData)
 
+        # negLoss
+        negData = input['nf3_neg']
+        negData = negData.to(self.device)
+        negLoss = self.neg_loss(negData)
 
-        print(loss1.item(),loss2.item(),loss3.item(),loss4.item(),disJointLoss.item(),topLoss.item() )
+
+        print(loss1.item(),loss2.item(),loss3.item(),loss4.item(),disJointLoss.item(),topLoss.item(), negLoss.item() )
         #  print( loss1,loss2,disJointLoss)
 
-        return  loss1 + loss2 + loss3 + loss4 + disJointLoss + topLoss
+        return  loss1 + loss2 + loss3 + loss4 + disJointLoss + topLoss + negLoss
 
  
 
