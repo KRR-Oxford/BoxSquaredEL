@@ -11,49 +11,41 @@ Return:
     classes: dictonary, key is class name, value is according index
     relations: dictonary, key is relation name, value is according index
 '''
+
+
 def load_data(filename):
+
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
     with open(filename) as f:
         for line in f:
-            # Ignore SubObjectPropertyOf(
+            # Ignore SubObjectPropertyOf
             if line.startswith('SubObjectPropertyOf'):
                 continue
-            # Ignore SubClassOf(), totally 10 characters
-            # remove subClassOf
+            # Ignore SubClassOf()
             line = line.strip()[11:-1]
             if not line:
                 continue
-
-            if line.startswith('ObjectIntersectionOf('):  # And operation
+            if line.startswith('ObjectIntersectionOf('):
                 # C and D SubClassOf E
-
-                # SubClassOf(ObjectIntersectionOf(<http://4932.YPL266W> <http://purl.obolibrary.org/obo/GO_0008150>) <http://purl.obolibrary.org/obo/GO_0060049>)
                 it = line.split(' ')
-                c = it[0][21:]  # <http://4932.YPL266W>
-                d = it[1][:-1]  # <http://purl.obolibrary.org/obo/GO_0008150>
-                e = it[2]  # <http://purl.obolibrary.org/obo/GO_0060049>
+                c = it[0][21:]
+                d = it[1][:-1]
+                e = it[2]
                 if c not in classes:
                     classes[c] = len(classes)
                 if d not in classes:
                     classes[d] = len(classes)
                 if e not in classes:
                     classes[e] = len(classes)
-
-                # C and D is subsetof E
                 form = 'nf2'
                 if e == 'owl:Nothing':
                     form = 'disjoint'
-
-
-                # add the according index to data
                 data[form].append((classes[c], classes[d], classes[e]))
-
 
             elif line.startswith('ObjectSomeValuesFrom('):
                 # R some C SubClassOf D
-
                 it = line.split(' ')
                 r = it[0][21:]
                 c = it[1][:-1]
@@ -65,7 +57,6 @@ def load_data(filename):
                 if r not in relations:
                     relations[r] = len(relations)
                 data['nf4'].append((relations[r], classes[c], classes[d]))
-
             elif line.find('ObjectSomeValuesFrom') != -1:
                 # C SubClassOf R some D
                 it = line.split(' ')
@@ -82,7 +73,6 @@ def load_data(filename):
             else:
                 # C SubClassOf D
                 it = line.split(' ')
-
                 c = it[0]
                 d = it[1]
                 if c not in classes:
@@ -126,7 +116,7 @@ def load_data(filename):
             continue
         data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
-
+   # print(len(data['nf1']))
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
     data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)

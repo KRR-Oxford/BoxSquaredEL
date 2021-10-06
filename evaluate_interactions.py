@@ -158,11 +158,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
                 preds[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.float32)
             labels[r][c, d] = 1
             #蛋白质左下（原中心）
-            ec_old = prot_embeds[c, :].reshape(1,-1)
+            ec= prot_embeds[c, :].reshape(1,-1)
           #  print(prot_embeds)
 
             #蛋白质右上（原半径）
-            rc_old = prot_rs[c, :].reshape(1,-1)
+            rc = prot_rs[c, :].reshape(1,-1)
 
 
 
@@ -170,8 +170,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             er = rembeds[r, :].reshape(1,-1)
          #   rr = rembeds[r, embedding_dim:].reshape(1,-1)
 
-            ec = er+ec_old
-            rc = er+ rc_old
+            ec += er
+            rc += er
 
             centerPro = (prot_embeds+prot_rs)/2
 
@@ -197,7 +197,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             #1.圆的距离
 
-            #res =  np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2
+            res =  np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2
 
             # #2.cosine距离
             # dis1 = np.linalg.norm(prot_embeds,axis=1)+np.linalg.norm(ec,axis=1)

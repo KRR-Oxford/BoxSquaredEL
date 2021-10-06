@@ -15,7 +15,7 @@ import pandas as pd
     '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
-    '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v11.0.txt',
+    '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v10.5.txt',
     help='Validation data set')
 @ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
@@ -57,19 +57,12 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
-    optimizer = optim.Adam(model.parameters(), lr = 0.0005)
+    model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=0.1)
+    optimizer = optim.Adam(model.parameters(), lr = 0.01)
     model = model.to(device)
     train(model,train_data, optimizer)
     model.eval()
-   # print(classes.keys())
 
-    # for key in classes.keys():
-    #     currentClass = torch.tensor(classes[key]).to(device)
-    #     embedding = model.classEmbeddingDict(currentClass).clone().detach().cpu().numpy()
-    #     print(key,embedding)
-
-   # print(model.classEmbeddingDict(torch.tensor(range(8))))
 
     cls_file = 'data/ballClassEmbed.pkl'
     rel_file = 'data/ballRelationEmbed.pkl'
@@ -91,10 +84,10 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, num_epochs=1000):
+def train(model, data, optimizer, num_epochs=2000):
     model.train()
     for epoch in range(num_epochs):
-        model.zero_grad()
+        #model.zero_grad()
         loss = model(data)
         print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()

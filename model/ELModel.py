@@ -1,22 +1,10 @@
 import torch.nn as nn
 import torch
-
+from TransR import TransR
 # '''
 # Transformer the embedding to the left-bottom point of the box
 # '''
-# class CenterTransModel(nn.Module):
-#     def __init__(self, embedding_dim):
-#         super(CenterTransModel, self).__init__()
-#         self.mlp = nn.Sequential(
-#             nn.Linear(embedding_dim, 4 * embedding_dim),
-#             nn.Tanh(),
-#             nn.Linear(4 * embedding_dim, 8 * embedding_dim),
-#             nn.Tanh(),
-#             nn.Linear(8 * embedding_dim, 4 * embedding_dim),
-#             nn.Tanh(),
-#             nn.Linear(4 * embedding_dim, embedding_dim),
-#             nn.Sigmoid(),
-#         )
+
 #
 #     def forward(self,input):
 #         return self.mlp(input)*5
@@ -93,8 +81,10 @@ class ELModel(nn.Module):
     '''
     def __init__(self, device, classNum, relationNum, embedding_dim, margin=0):
         super(ELModel, self).__init__()
+        {1:(1,35,1,2)}
         self.margin=margin
         self.classNum = classNum
+        self.TransR = TransR(embedding_dim)
         self.relationNum = relationNum
         self.device = device
         self.classEmbeddingDict = nn.Embedding(classNum, embedding_dim*2)
@@ -199,15 +189,16 @@ class ELModel(nn.Module):
 
     # cClass isSubSet of relation some dClass
     def nf3Loss(self, input):
+
         cClass = self.classEmbeddingDict(input[:, 0])
         rRelation = self.relationEmbeddingDict(input[:, 1])
         dClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = cClass[:, :self.embedding_dim]
-        cClassOffset = cClass[:, self.embedding_dim:]
+        cClassCenter = self.TransR(cClass[:, :self.embedding_dim])
+        cClassOffset = self.TransR(cClass[:, self.embedding_dim:])
 
-        dClassCenter = dClass[:, :self.embedding_dim]
-        dClassOffset = dClass[:, self.embedding_dim:]
+        dClassCenter = self.TransR(dClass[:, :self.embedding_dim])
+        dClassOffset = self.TransR(dClass[:, self.embedding_dim:])
 
         rRelationCenter = rRelation[:, :self.embedding_dim]
 
@@ -239,11 +230,11 @@ class ELModel(nn.Module):
         dClass = self.classEmbeddingDict(input[:, 2])
 
 
-        cClassCenter = cClass[:, 0:self.embedding_dim]
-        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
+        cClassCenter = self.TransR(cClass[:, :self.embedding_dim])
+        cClassOffset = self.TransR(cClass[:, self.embedding_dim:])
 
-        dClassCenter = dClass[:, 0:self.embedding_dim]
-        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
+        dClassCenter = self.TransR(dClass[:, :self.embedding_dim])
+        dClassOffset = self.TransR(dClass[:, self.embedding_dim:])
 
         rRelationCenter = rRelation[:, 0:self.embedding_dim]
 
@@ -339,11 +330,11 @@ class ELModel(nn.Module):
         rRelation = self.relationEmbeddingDict(input[:, 1])
         dClass = self.classEmbeddingDict(input[:, 2])
 
-        cClassCenter = cClass[:, 0:self.embedding_dim]
-        cClassOffset = cClass[:, self.embedding_dim:2 * self.embedding_dim]
+        cClassCenter = self.TransR(cClass[:, :self.embedding_dim])
+        cClassOffset = self.TransR(cClass[:, self.embedding_dim:])
 
-        dClassCenter = dClass[:, 0:self.embedding_dim]
-        dClassOffset = dClass[:, self.embedding_dim:2 * self.embedding_dim]
+        dClassCenter = self.TransR(dClass[:, :self.embedding_dim])
+        dClassOffset = self.TransR(dClass[:, self.embedding_dim:])
 
         rRelationCenter = rRelation[:, 0:self.embedding_dim]
 
