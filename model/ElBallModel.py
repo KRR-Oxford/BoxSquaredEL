@@ -46,6 +46,7 @@ class ELBallModel(nn.Module):
         rd = torch.abs(d[:, -1])
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+
         euc = torch.linalg.norm(x1 - x2, axis=1)
         relu = torch.nn.ReLU()
         dst = torch.reshape(relu(euc + rc - rd + self.margin), [-1, 1])
@@ -61,10 +62,12 @@ class ELBallModel(nn.Module):
         rc = torch.reshape(torch.abs(c[:, -1]), [-1, 1])
         rd = torch.reshape(torch.abs(d[:, -1]), [-1, 1])
         re = torch.reshape(torch.abs(e[:, -1]), [-1, 1])
-        sr = rc + rd
+
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         x3 = e[:, 0:-1]
+
+        sr = rc + rd
 
         x = x2 - x1
         dst = torch.reshape(torch.linalg.norm(x, axis=1), [-1, 1])
@@ -90,10 +93,12 @@ class ELBallModel(nn.Module):
 
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        x3 = x1 + r
+
 
         rc = torch.abs(c[:, -1])
         rd = torch.abs(d[:, -1])
+
+        x3 = x1 + r
         euc = torch.linalg.norm(x3 - x2, axis=1)
         relu = torch.nn.ReLU()
         dst = torch.reshape(relu(euc + rc - rd + self.margin), [-1, 1])
@@ -107,11 +112,10 @@ class ELBallModel(nn.Module):
 
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-
-        x3 = x1 + r
-
         rc = torch.abs(c[:, -1])
         rd = torch.abs(d[:, -1])
+
+        x3 = x1 + r
         euc = torch.linalg.norm(x3 - x2, axis=1)
 
      #   relu = torch.nn
@@ -127,9 +131,11 @@ class ELBallModel(nn.Module):
 
         rc = torch.reshape(torch.abs(c[:, -1]), [-1, 1])
         rd = torch.reshape(torch.abs(d[:, -1]), [-1, 1])
-        sr = rc + rd
+
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+
+        sr = rc + rd
 
         # c - r should intersect with d
         x3 = x1 - r
@@ -145,9 +151,11 @@ class ELBallModel(nn.Module):
 
         rc = torch.reshape(torch.abs(c[:, -1]), [-1, 1])
         rd = torch.reshape(torch.abs(d[:, -1]), [-1, 1])
-        sr = rc + rd
+
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+
+        sr = rc + rd
 
         dst = torch.reshape(torch.linalg.norm(x2 - x1, axis=1), [-1, 1])
         relu = torch.nn.ReLU()
@@ -215,7 +223,7 @@ class ELBallModel(nn.Module):
         #      negLoss)
         #  print( loss1,loss2,disJointLoss)
 
-        totalLoss = loss1 + loss2 + loss3 + loss4 + disJointLoss +  negLoss #+ topLoss
+        totalLoss = loss1 + loss2 + loss3 + loss4 + disJointLoss# +  negLoss #+ topLoss
 
         # print(torch.sum(totalLoss*totalLoss))
         # print(torch.sqrt(torch.sum(totalLoss*totalLoss)))

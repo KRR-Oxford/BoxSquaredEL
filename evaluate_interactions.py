@@ -197,7 +197,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             #1.圆的距离
 
-            res =  np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2
+            res =  np.linalg.norm(centerPro-centerClass, axis=1)-np.linalg.norm(prot_embeds - prot_rs, axis=1)/2- np.linalg.norm((rc - ec) , axis=1)/2
 
             # #2.cosine距离
             # dis1 = np.linalg.norm(prot_embeds,axis=1)+np.linalg.norm(ec,axis=1)
@@ -208,22 +208,22 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             #res = np.linalg.norm(prot_embeds-rc, axis=1)+np.linalg.norm(prot_rs-ec, axis=1)
 
 
-            # 4.box 相交
+            # # #4.box 相交
             # startAll = np.maximum(prot_embeds, ec)
             # endAll = np.minimum(prot_rs, rc)
-            # res = -np.sum(np.maximum(np.ones(endAll.shape)*-0.1,endAll-startAll+np.ones(endAll.shape)*0.1),axis=1)
-
-
+            # res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+            #
+            #
 
 
          #   print(len(startAll))
 
             # #圆心间距离
             # dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
-            # dst = dst.reshape(-1, 1)
-            # if rc > 0:
-            #     overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
+            # dst = dst.reshape(-1, 1)(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
             # else:
+            # if rc > 0:
+            #     overlap = np.maximum
             #     overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
             
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
@@ -237,7 +237,12 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
 
             #res = np.sqrt(np.sum((edges*edges),axis=1))
-            preds[r][c, :] = res
+            #print(res.shape,preds[r][c, :].shape)
+            # for i in range(len(res)):
+            #     preds[r][c][i]=res[i]
+            #preds[r][c, :] = np.reshape(preds[r][c, :],[-1,1])
+           # print(res.shape)
+            preds[r][c,:] = res
             index = rankdata(res, method='average')
 
             rank = index[d]

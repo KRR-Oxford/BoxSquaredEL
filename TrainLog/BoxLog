@@ -1,0 +1,12 @@
+#box disjoint loss only
+human 50 -0.1 1 0.06 0.43 524.72 0.90
+human 50 -0.1 1 0.13 0.58 481.63 0.91
+
+#ball disjoint loss only
+human 50 -0.1 1 0.06 0.42 582.27 0.89
+human 50 -0.1 1 0.14 0.55 538.61 0.90
+
+#combine dis
+human 50 -0.1 1 0.06 0.42 552.66 0.90
+human 50 -0.1 1 0.14 0.56 509.23 0.91
+
