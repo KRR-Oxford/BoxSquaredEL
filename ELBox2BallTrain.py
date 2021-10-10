@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click as ck
 import torch.optim as optim
-from ELBox2BallModel import  ELBox2BallModel
+from model.ELBox2BallModel import  ELBox2BallModel
 from utils.elDataLoader import load_data, load_valid_data
 import logging
 import torch
@@ -57,8 +57,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=50, margin=0.1)
-    optimizer = optim.Adam(model.parameters(), lr = 0.01)
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
+    optimizer = optim.RMSprop(model.parameters(), lr = 0.004)
     model = model.to(device)
     train(model,train_data, optimizer)
     model.eval()
@@ -84,7 +84,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, num_epochs=2000):
+def train(model, data, optimizer, num_epochs=100000):
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()

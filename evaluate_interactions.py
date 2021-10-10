@@ -195,24 +195,30 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             #print((centerClass).shape)
            # print(np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2 )
 
-            #1.圆的距离
+            # #1.圆的距离
 
-            res =  np.linalg.norm(centerPro-centerClass, axis=1)-np.linalg.norm(prot_embeds - prot_rs, axis=1)/2- np.linalg.norm((rc - ec) , axis=1)/2
+            # res =  np.linalg.norm(centerPro-centerClass, axis=1)-np.linalg.norm(prot_embeds - prot_rs, axis=1)/2- np.linalg.norm((rc - ec) , axis=1)/2
 
-            # #2.cosine距离
+            #2.cosine距离 human 50 -0.1 1 0.10 0.55 244.48 0.96
             # dis1 = np.linalg.norm(prot_embeds,axis=1)+np.linalg.norm(ec,axis=1)
             # dis2 = np.linalg.norm(rc,axis=1)+np.linalg.norm(prot_rs,axis=1)
             # res = -np.sum(prot_embeds * ec,axis=1)/dis1 - np.sum(rc * prot_rs,axis=1)/dis2
 
-            # #3.欧拉距离
-            #res = np.linalg.norm(prot_embeds-rc, axis=1)+np.linalg.norm(prot_rs-ec, axis=1)
+            # #3.欧氏距离
+            '''
+            human 50 -0.1 1 0.08 0.45 445.89 0.92
+            human 50 -0.1 1 0.18 0.60 400.83 0.93
+            '''
+            res = np.linalg.norm(prot_embeds-ec, axis=1)+np.linalg.norm(prot_rs-rc, axis=1)
 
-
-            # # #4.box 相交
+            '''
+            human 50 -0.1 1 0.07 0.44 480.83 0.91
+            human 50 -0.1 1 0.16 0.57 435.86 0.92'''
+            # # # #4.box 相交
             # startAll = np.maximum(prot_embeds, ec)
             # endAll = np.minimum(prot_rs, rc)
             # res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
-            #
+
             #
 
 

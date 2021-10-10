@@ -161,7 +161,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
             # res = (overlap + 1 / np.exp(edst)) / 2
-            res = dst #- rc - prot_rs
+            res = dst - rc - prot_rs
             res = res.flatten()
             preds[r][c, :] = res
             index = rankdata(res, method='average')
