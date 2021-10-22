@@ -3,6 +3,8 @@ import torch
 from TransR import TransR
 import numpy as np
 
+
+
 class ELModel(nn.Module):
     '''
 
@@ -22,11 +24,11 @@ class ELModel(nn.Module):
         self.inf = 5
         self.reg_norm = 1
         self.classEmbeddingDict = nn.Embedding(classNum, embedding_dim*2)
-        nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
+        nn.init.uniform_(self.classEmbeddingDict.weight, a=0, b=1)
         self.classEmbeddingDict.weight.data /= torch.linalg.norm(self.classEmbeddingDict.weight, axis=1).reshape(-1, 1)
 
         self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
-        nn.init.uniform_(self.relationEmbeddingDict.weight, a=-1, b=1)
+        nn.init.uniform_(self.relationEmbeddingDict.weight, a=0, b=1)
         self.relationEmbeddingDict.weight.data /= torch.linalg.norm(
             self.relationEmbeddingDict.weight, axis=1).reshape(-1, 1)
 

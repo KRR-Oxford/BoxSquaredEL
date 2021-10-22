@@ -9,6 +9,8 @@ import math
 import os
 from collections import deque
 
+import torch
+
 from utils.utils import Ontology, FUNC_DICT
 
 from sklearn.manifold import TSNE
@@ -17,7 +19,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import rankdata
 
 logging.basicConfig(level=logging.INFO)
-
+epoch = '6000'
 @ck.command()
 @ck.option(
     '--go-file', '-gf', default='data/go.obo',
@@ -32,10 +34,10 @@ logging.basicConfig(level=logging.INFO)
     '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/classEmbed.pkl',
+    '--cls-embeds-file', '-cef', default='data/classEmbedPlot1.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationEmbed.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationEmbedPlot1.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -149,6 +151,13 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     eval_data = test_data
     n = len(eval_data)
 
+    model = torch.load('netPlot1.pkl')
+    transfer_matrix_list = list(model.transfer_matrix.weight.clone().detach().cpu().numpy())
+
+    transfer_matrix_embed = np.zeros((nb_relations, int(size*size/4)), dtype=np.float32)
+    for i, emb in enumerate(transfer_matrix_list):
+        transfer_matrix_embed[i, :] = emb
+
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
@@ -157,28 +166,47 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if r not in preds:
                 preds[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.float32)
             labels[r][c, d] = 1
+
+
             #蛋白质左下（原中心）
-            ec= prot_embeds[c, :].reshape(1,-1)
+           # transfer_matrix = self.transfer_matrix(input[:, 0]).reshape(-1, self.embedding_dim, self.embedding_dim)
+
+            transfer_matrix = transfer_matrix_embed[r].reshape(-1, model.embedding_dim, model.embedding_dim)
+          # print(prot_embeds[c, :],transfer_matrix)
+
+            # ec = prot_embeds[c, :].reshape(1, -1)
+          #  matmul(c1.reshape(-1, 1, self.embedding_dim), transfer_matrix).reshape(-1, self.embedding_dim)
+            ec = np.matmul(prot_embeds[c, :].reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1, model.embedding_dim).reshape(1,-1)
+            # ed = np.matmul(prot_embeds[d, :].reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1, model.embedding_dim).reshape(1,-1)
+         #   print(ec)
+
           #  print(prot_embeds)
 
             #蛋白质右上（原半径）
-            rc = prot_rs[c, :].reshape(1,-1)
+            # rc = prot_rs[c, :].reshape(1,-1)
+       #     print(rc)
+
+            rc = np.matmul((prot_rs[c, :]- prot_embeds[c, :]).reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1,model.embedding_dim).reshape(1, -1)+ec
+            # rd =  np.matmul((prot_rs[d, :] ).reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1,model.embedding_dim).reshape(1, -1)
+           # print(rc)
+
 
 
 
             #relation左下
             er = rembeds[r, :].reshape(1,-1)
+        #    print(er.shape)
+
          #   rr = rembeds[r, embedding_dim:].reshape(1,-1)
 
             ec += er
             rc += er
 
-            centerPro = (prot_embeds+prot_rs)/2
+            # print((np.sum(ed -ec,axis=1)+np.sum(rd - rc,axis=1)))
 
-            centerClass = (rc + ec) / 2
 
-            proLenth = (prot_embeds - prot_rs)
-            ClassLenth = (rc - ec)
+
+
 
 
             # startAll = np.maximum(prot_embeds, ec)
@@ -193,36 +221,59 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             #         print(a)
             #     res.append(a)
             #print((centerClass).shape)
-           # print(np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2 )
+
+            # prot_embedsNew = prot_embeds
+            prot_embedsNew = np.matmul(prot_embeds.reshape(-1, transfer_matrix.shape[0], int(size / 2)).transpose(1, 0, 2),transfer_matrix).transpose(1, 0, 2).reshape(prot_embeds.shape)
+
+            # prot_rsNew = prot_rs
+            prot_rsNew = np.matmul((prot_rs-prot_embeds ).reshape(-1, transfer_matrix.shape[0], int(size / 2)).transpose(1, 0, 2),transfer_matrix).transpose(1, 0, 2).reshape(prot_rs.shape)+prot_embedsNew
+            #
+            # print(np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2 )
+            # 0.Ball
+            # res = np.linalg.norm(prot_embeds - ec, axis=1) - np.linalg.norm( prot_rs,axis=1) / 2 - np.linalg.norm((rc), axis=1) / 2
 
             # #1.圆的距离
+            centerPro = (prot_embedsNew + prot_rsNew) / 2
 
-            # res =  np.linalg.norm(centerPro-centerClass, axis=1)-np.linalg.norm(prot_embeds - prot_rs, axis=1)/2- np.linalg.norm((rc - ec) , axis=1)/2
+            centerClass = (rc + ec) / 2
 
-            #2.cosine距离 human 50 -0.1 1 0.10 0.55 244.48 0.96
-            # dis1 = np.linalg.norm(prot_embeds,axis=1)+np.linalg.norm(ec,axis=1)
-            # dis2 = np.linalg.norm(rc,axis=1)+np.linalg.norm(prot_rs,axis=1)
-            # res = -np.sum(prot_embeds * ec,axis=1)/dis1 - np.sum(rc * prot_rs,axis=1)/dis2
-
-            # #3.欧氏距离
-            '''
-            human 50 -0.1 1 0.08 0.45 445.89 0.92
-            human 50 -0.1 1 0.18 0.60 400.83 0.93
-            '''
-            res = np.linalg.norm(prot_embeds-ec, axis=1)+np.linalg.norm(prot_rs-rc, axis=1)
-
-            '''
-            human 50 -0.1 1 0.07 0.44 480.83 0.91
-            human 50 -0.1 1 0.16 0.57 435.86 0.92'''
-            # # # #4.box 相交
-            # startAll = np.maximum(prot_embeds, ec)
-            # endAll = np.minimum(prot_rs, rc)
-            # res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+            res =  np.linalg.norm(centerPro-centerClass, axis=1)-np.linalg.norm(prot_embedsNew - prot_rsNew, axis=1)/2- np.linalg.norm((rc - ec) , axis=1)/2
 
             #
+            # 2.cosine距离 human 50 -0.1 1 0.10 0.55 244.48 0.96
+            # dis1 = np.linalg.norm(prot_embedsNew,axis=1)+np.linalg.norm(ec,axis=1)
+            # dis2 = np.linalg.norm(rc,axis=1)+np.linalg.norm(prot_rsNew,axis=1)
+            # res = -np.sum(prot_embedsNew * ec,axis=1)/dis1 - np.sum(rc * prot_rsNew,axis=1)/dis2
+
+            #3.欧氏距离
+
+            '''
+                        
+            human 50 -0.1 1 0.09 0.56 267.52 0.95
+            human 50 -0.1 1 0.24 0.74 219.65 0.96
+
+            human 50 -0.1 1 0.08 0.45 445.89 0.92yeast-classes-normalized.owl
+            human 50 -0.1 1 0.18 0.60 400.83 0.93
+            '''
 
 
-         #   print(len(startAll))
+
+            # res = np.linalg.norm(prot_embedsNew -ec, axis=1)+np.linalg.norm(prot_rsNew -rc, axis=1)
+
+            '''
+            human 50 -0.1 1 0.09 0.52 360.45 0.93
+human 50 -0.1 1 0.23 0.68 313.47 0.94'''
+            # #4.box 相交
+            startAll = np.maximum(prot_embedsNew, ec)
+            endAll = np.minimum(prot_rsNew, rc)
+            res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+          #  print(res)
+
+            # #5.box 距离
+            # startAll = np.maximum(prot_embedsNew -ec)
+            # endAll = np.minimum(prot_rsNew, rc)
+            # res = (np.sum(prot_embedsNew -ec,axis=1)+np.sum(prot_rsNew - rc,axis=1))#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+
 
             # #圆心间距离
             # dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
@@ -252,6 +303,10 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             index = rankdata(res, method='average')
 
             rank = index[d]
+
+           # print(rank,res[d])
+
+            #print(1 / 0)
             if rank == 1:
                 top1 += 1
             if rank <= 10:

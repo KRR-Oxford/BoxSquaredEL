@@ -50,6 +50,7 @@ class ELBallModel(nn.Module):
         euc = torch.linalg.norm(x1 - x2, axis=1)
         relu = torch.nn.ReLU()
         dst = torch.reshape(relu(euc + rc - rd + self.margin), [-1, 1])
+
         return dst + self.reg(x1) + self.reg(x2)
 
 
@@ -170,7 +171,7 @@ class ELBallModel(nn.Module):
 
 
     def forward(self, input):
-        batch = 256
+        batch = 512
         #print(input['disjoint'])
         # nf1
 
@@ -223,8 +224,9 @@ class ELBallModel(nn.Module):
         #      negLoss)
         #  print( loss1,loss2,disJointLoss)
 
-        totalLoss = loss1 + loss2 + loss3 + loss4 + disJointLoss# +  negLoss #+ topLoss
+        totalLoss = loss1 + loss2 + disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
 
         # print(torch.sum(totalLoss*totalLoss))
         # print(torch.sqrt(torch.sum(totalLoss*totalLoss)))
+        #print(totalLoss)
         return torch.sum(totalLoss*totalLoss)/batch

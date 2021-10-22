@@ -6,8 +6,9 @@ from utils.elDataLoader import load_data, load_valid_data
 import logging
 import torch
 logging.basicConfig(level=logging.INFO)
+from utils.plot_embeddings import plot_embeddings
 import pandas as pd
-
+import  numpy as np
 @ck.command()
 #family_normalized.owl
 #yeast-classes-normalized.owl
@@ -57,23 +58,35 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
-    optimizer = optim.RMSprop(model.parameters(), lr = 0.004)
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=50, margin=0)
+
+    #
+    # checkpoint = torch.load('./netPlot.pkl')
+    # model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
+
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    #optimizer = TheOptimizerClass()
+    #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # 加载优化器参数
     model = model.to(device)
-    train(model,train_data, optimizer)
+    train(model,train_data, optimizer,classes, relations)
     model.eval()
-
-    cls_file = 'data/classEmbed.pkl'
-    rel_file = 'data/relationEmbed.pkl'
-
+    # cls_file = 'data/classEmbed_TransRBox' + str(epoch + 1) + '.pkl'
+    # rel_file = 'data/relationEmbed_TransRBox' + str(epoch + 1) + '.pkl'
+    cls_file = 'data/classEmbedPlot.pkl'
+    rel_file = 'data/relationEmbedPlot.pkl'
 
     df = pd.DataFrame(
-        {'classes': list(classes.keys()), 'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
+        {'classes': list(classes.keys()),
+         'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
     df.to_pickle(cls_file)
 
     df = pd.DataFrame(
-        {'relations': list(relations.keys()), 'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
+        {'relations': list(relations.keys()),
+         'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
     df.to_pickle(rel_file)
+    torch.save(model, './netPlot.pkl')
+
+
 
 
     #store embedding
@@ -84,7 +97,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, num_epochs=100000):
+def train(model, data, optimizer, aclasses, relations, num_epochs=7001 ):
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()
@@ -92,8 +105,35 @@ def train(model, data, optimizer, num_epochs=100000):
         print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()
         loss.backward()
-
         optimizer.step()
+
+        # if epoch%100==0:
+        #
+        #     cls_df = list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())
+        #     nb_classes = len(cls_df)
+        #
+        #     embeds_list = cls_df
+        #     classes = {k: v for k, v in enumerate(aclasses)}
+        #
+        #     size = len(embeds_list[0])
+        #     embeds = np.zeros((nb_classes, size), dtype=np.float32)
+        #     for i, emb in enumerate(embeds_list):
+        #         embeds[i, :] = emb
+        #     l1 = embeds[:, :-2]
+        #     r1 = embeds[:, 2:]
+        #     plot_embeddings(l1, r1,  classes, epoch)
+
+
+
+     #    for key in classes.keys():
+     #        currentClass = torch.tensor(classes[key])
+     #        embedding = torch.tensor(model.classEmbeddingDict(currentClass))
+     #        # classCenter = model.centerTransModel(embedding)
+     #        # classOffset = model.offsetTransModel(embedding)
+     #       # print(key, embedding+torch.Tensor([2]))
+     # #   if (epoch+1)% 2000 == 0:
+
+
 
 if __name__ == '__main__':
     main()

@@ -71,8 +71,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
    # print(model.classEmbeddingDict(torch.tensor(range(8))))
 
-    cls_file = 'data/classEmbed.pkl'
-    rel_file = 'data/relationEmbed.pkl'
+    cls_file = 'data/TrainclassEmbed.pkl'
+    rel_file = 'data/TrainrelationEmbed.pkl'
 
     df = pd.DataFrame(
         {'classes': list(classes.keys()), 'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
