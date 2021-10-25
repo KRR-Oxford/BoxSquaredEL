@@ -62,7 +62,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= 0 )
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= 0.1 )
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
