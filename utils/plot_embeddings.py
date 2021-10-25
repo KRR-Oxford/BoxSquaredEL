@@ -77,7 +77,7 @@ def plot_embeddings(left,right, classes, epoch):
     ax.grid(True)
     # filename = 'embeds.svg'
     # if epoch:
-    filename = 'embeds_'+str(epoch)+'.svg'
+    filename = 'graph/embeds_'+str(epoch)+'.svg'
     plt.savefig(filename)
     # plt.plot([0.01,0.01],[0.01,0.01])
     # plt.show()

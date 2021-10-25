@@ -34,10 +34,10 @@ epoch = '6000'
     '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/classEmbedPlot1.pkl',
+    '--cls-embeds-file', '-cef', default='data/classEmbedPlot.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationEmbedPlot1.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationEmbedPlot.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -50,8 +50,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     embedding_size = 50
     reg_norm = 1
     org = 'human'
-    go = Ontology(go_file, with_rels=False)
-    pai = params_array_index
     # if params_array_index != -1:
     #     orgs = ['human', 'yeast']
     #     sizes = [50, 100, 200, 400]
@@ -75,6 +73,29 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     #     if os.path.exists(loss_file):
     #         df = pd.read_csv(loss_file)
     #         print('Loss:', df['loss'].values[-1])
+    classDirectionDict = {}
+    classPositionDict = {}
+    for index in range(10):
+        cls_df = pd.read_pickle('data/classEmbedPlot'+str(index)+'.pkl')
+        embeds_list = cls_df['embeddings'].values
+        size = len(embeds_list[0])
+        embeds = np.zeros((len(cls_df), size), dtype=np.float32)
+        for i, emb in enumerate(embeds_list):
+            embeds[i, :] = emb
+        proteins = {}
+        classes = {v: k for k, v in enumerate(cls_df['classes'])}
+        for k, v in classes.items():
+            if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
+                proteins[k] = v
+        embedding_dim = int(len(embeds[0]) / 2)
+        direction = embeds[:, embedding_dim:]
+        position = embeds[:, :embedding_dim]
+        prot_index = list(proteins.values())
+        prot_direction = direction[prot_index, :]
+        prot_position = position[prot_index, :]
+        classDirectionDict[index]=prot_direction
+        classPositionDict[index]=prot_position
+     #   print(classPositionDict.keys(),index)
 
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -103,14 +124,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
     # rs represent the radius, now i change to the right-top point
 
-    rs = embeds[:, :embedding_dim]
-    embeds = embeds[:, embedding_dim:]
 
 
-    #得到蛋白质的box
-    prot_index = list(proteins.values())
-    prot_rs = rs[prot_index, :]
-    prot_embeds = embeds[prot_index, :]
 
     prot_dict = {v: k for k, v in enumerate(prot_index)}
 
@@ -120,13 +135,17 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
 
+
+
+
     train_data = load_data(train_data_file, classes, relations)
     valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
     for c, r, d in train_data:
         c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
         if r not in trlabels:
-            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+
+            trlabels[r] = np.ones((len(classPositionDict[r]), len(classPositionDict[r])), dtype=np.int32)
         trlabels[r][c, d] = 1000
     # for c, r, d in valid_data:
     #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
@@ -151,86 +170,45 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     eval_data = test_data
     n = len(eval_data)
 
-    model = torch.load('netPlot1.pkl')
-    transfer_matrix_list = list(model.transfer_matrix.weight.clone().detach().cpu().numpy())
+   # model = torch.load('netPlot.pkl')
+    #transfer_matrix_list = list(model.transfer_matrix.weight.clone().detach().cpu().numpy())
 
     transfer_matrix_embed = np.zeros((nb_relations, int(size*size/4)), dtype=np.float32)
-    for i, emb in enumerate(transfer_matrix_list):
-        transfer_matrix_embed[i, :] = emb
+    # for i, emb in enumerate(transfer_matrix_list):
+    #     transfer_matrix_embed[i, :] = emb
 
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
             if r not in labels:
-                labels[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+                labels[r] = np.zeros((len(classPositionDict[r]), len(classPositionDict[r])), dtype=np.int32)
             if r not in preds:
-                preds[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.float32)
+                preds[r] = np.zeros((len(classPositionDict[r]), len(classPositionDict[r])), dtype=np.float32)
             labels[r][c, d] = 1
 
 
             #蛋白质左下（原中心）
-           # transfer_matrix = self.transfer_matrix(input[:, 0]).reshape(-1, self.embedding_dim, self.embedding_dim)
 
-            transfer_matrix = transfer_matrix_embed[r].reshape(-1, model.embedding_dim, model.embedding_dim)
-          # print(prot_embeds[c, :],transfer_matrix)
-
-            # ec = prot_embeds[c, :].reshape(1, -1)
-          #  matmul(c1.reshape(-1, 1, self.embedding_dim), transfer_matrix).reshape(-1, self.embedding_dim)
-            ec = np.matmul(prot_embeds[c, :].reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1, model.embedding_dim).reshape(1,-1)
-            # ed = np.matmul(prot_embeds[d, :].reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1, model.embedding_dim).reshape(1,-1)
-         #   print(ec)
-
-          #  print(prot_embeds)
+            ec = classPositionDict[r][c, :].reshape(1, -1)
 
             #蛋白质右上（原半径）
-            # rc = prot_rs[c, :].reshape(1,-1)
-       #     print(rc)
-
-            rc = np.matmul((prot_rs[c, :]- prot_embeds[c, :]).reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1,model.embedding_dim).reshape(1, -1)+ec
-            # rd =  np.matmul((prot_rs[d, :] ).reshape(-1, 1, model.embedding_dim), transfer_matrix).reshape(-1,model.embedding_dim).reshape(1, -1)
-           # print(rc)
+            rc = classDirectionDict[r][c, :].reshape(1,-1)+ec
 
 
 
 
             #relation左下
             er = rembeds[r, :].reshape(1,-1)
-        #    print(er.shape)
 
-         #   rr = rembeds[r, embedding_dim:].reshape(1,-1)
 
             ec += er
             rc += er
 
-            # print((np.sum(ed -ec,axis=1)+np.sum(rd - rc,axis=1)))
+            prot_embedsNew = classPositionDict[r]
+
+            prot_rsNew = classDirectionDict[r]+classPositionDict[r]
 
 
-
-
-
-
-            # startAll = np.maximum(prot_embeds, ec)
-            # endAll = np.minimum(prot_rs, rc)
-            # edges =  np.maximum(np.zeros(endAll.shape),endAll-startAll)
-            # res = []
-            # for edge in edges:
-            #     a = 1
-            #     for ele in edge:
-            #         a*=ele
-            #     if a!=0:
-            #         print(a)
-            #     res.append(a)
-            #print((centerClass).shape)
-
-            # prot_embedsNew = prot_embeds
-            prot_embedsNew = np.matmul(prot_embeds.reshape(-1, transfer_matrix.shape[0], int(size / 2)).transpose(1, 0, 2),transfer_matrix).transpose(1, 0, 2).reshape(prot_embeds.shape)
-
-            # prot_rsNew = prot_rs
-            prot_rsNew = np.matmul((prot_rs-prot_embeds ).reshape(-1, transfer_matrix.shape[0], int(size / 2)).transpose(1, 0, 2),transfer_matrix).transpose(1, 0, 2).reshape(prot_rs.shape)+prot_embedsNew
-            #
-            # print(np.linalg.norm(centerPro-centerClass, axis=1) - np.linalg.norm(prot_embeds - prot_rs, axis=1)/2 - np.linalg.norm((rc - ec) , axis=1)/2 )
-            # 0.Ball
-            # res = np.linalg.norm(prot_embeds - ec, axis=1) - np.linalg.norm( prot_rs,axis=1) / 2 - np.linalg.norm((rc), axis=1) / 2
 
             # #1.圆的距离
             centerPro = (prot_embedsNew + prot_rsNew) / 2
@@ -258,21 +236,27 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
 
 
-            # res = np.linalg.norm(prot_embedsNew -ec, axis=1)+np.linalg.norm(prot_rsNew -rc, axis=1)
+            res = np.linalg.norm(prot_embedsNew -ec, axis=1)#+np.linalg.norm(prot_rsNew -rc, axis=1)
 
             '''
             human 50 -0.1 1 0.09 0.52 360.45 0.93
 human 50 -0.1 1 0.23 0.68 313.47 0.94'''
-            # #4.box 相交
-            startAll = np.maximum(prot_embedsNew, ec)
-            endAll = np.minimum(prot_rsNew, rc)
-            res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+            # 4.box 相交
+            # startAll = np.maximum(prot_embedsNew, ec)
+            # endAll = np.minimum(prot_rsNew, rc)
+            # res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
           #  print(res)
 
             # #5.box 距离
             # startAll = np.maximum(prot_embedsNew -ec)
             # endAll = np.minimum(prot_rsNew, rc)
             # res = (np.sum(prot_embedsNew -ec,axis=1)+np.sum(prot_rsNew - rc,axis=1))#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
+
+            # #6 nf3loss
+            # leftBottomLimit =  np.linalg.norm(np.maximum(prot_embedsNew - ec +0.01   , np.zeros(prot_rsNew.shape))   , axis=1)
+            # righttopLimit =  np.linalg.norm(np.maximum(rc- prot_rsNew +0.01, np.zeros(prot_rsNew.shape)), axis=1)
+            # res =  leftBottomLimit+righttopLimit
+          #  print(res)
 
 
             # #圆心间距离
@@ -285,6 +269,8 @@ human 50 -0.1 1 0.23 0.68 313.47 0.94'''
             
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
             # res = (overlap + 1 / np.exp(edst)) / 2
+
+
 
             # 圆心间距离 - 圆的半径和
             # 有交集就是0
@@ -405,7 +391,8 @@ def load_data(data_file, classes, relations):
             id2 = f'<http://{it[1]}>'
             if id1 not in classes or id2 not in classes or rel not in relations:
                 continue
-            data.append((id1, rel, id2))
+           # data.append((id1, rel, id2))
+            data.append((id2, rel, id1))
     return data
 
 def is_inside(ec, rc, ed, rd):

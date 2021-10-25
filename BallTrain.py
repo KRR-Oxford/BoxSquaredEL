@@ -61,7 +61,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=-0.1)
+    model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=0)
     optimizer = optim.Adam(model.parameters(), lr = 0.01)
     model = model.to(device)
     train(model,train_data,optimizer,classes )
@@ -87,7 +87,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses,num_epochs=6000):
+def train(model, data, optimizer, aclasses,num_epochs=1000):
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()

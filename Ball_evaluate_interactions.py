@@ -147,9 +147,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             labels[r][c, d] = 1
             ec_old = prot_embeds[c, :]
             rc = prot_rs[c, :]
+
             er = rembeds[r, :]
             ec = er + ec_old
 
+           # print( ec.reshape(1, -1),prot_embeds[d, :].reshape(1, -1) )
             #print(prot_embeds)
 
             dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
@@ -161,7 +163,9 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
             # res = (overlap + 1 / np.exp(edst)) / 2
-            res = dst - rc - prot_rs
+            res = dst + rc - prot_rs
+            res = np.linalg.norm(prot_embeds - ec, axis=1)
+
             res = res.flatten()
             preds[r][c, :] = res
             index = rankdata(res, method='average')

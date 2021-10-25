@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import click as ck
+import numpy
 import torch.optim as optim
 from model.ELBox2BallModel import  ELBox2BallModel
 from utils.elDataLoader import load_data, load_valid_data
@@ -54,11 +55,14 @@ import  numpy as np
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
+
     device = torch.device('cpu')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=50, margin=0)
+    print(len(relations))
+    embedding_dim = 50
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= -0.1 )
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
@@ -72,19 +76,45 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     model.eval()
     # cls_file = 'data/classEmbed_TransRBox' + str(epoch + 1) + '.pkl'
     # rel_file = 'data/relationEmbed_TransRBox' + str(epoch + 1) + '.pkl'
-    cls_file = 'data/classEmbedPlot.pkl'
+    model = model.to('cpu')
+
+
+
+    for i,r in zip(range(len(relations)),model.relationEmbeddingDict.weight):
+
+        cls_file = 'data/classEmbedPlot'+str(i)+'.pkl'
+
+        weights = model.classEmbeddingDict.weight
+        c1 = torch.cat((weights[:,:embedding_dim], torch.zeros(weights[:,:embedding_dim].shape)+r),dim = 1)
+        c2 = torch.cat((weights[:,embedding_dim:], torch.zeros(weights[:,:embedding_dim].shape)+r),dim = 1)
+
+        c1 = weights[:,:embedding_dim]
+        c2 = weights[:,embedding_dim:]
+
+       # classEmbedding = model.relationModel
+        c1_output  = c1
+        c2_output =  c2
+        classEmbedding = weights
+
+     #   classEmbedding = model.classEmbeddingDict.weight
+
+        #print(model.classEmbeddingDict.weight.shape)
+
+        df = pd.DataFrame(
+            {'classes': list(classes.keys()),
+             'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
+        df.to_pickle(cls_file)
+
+
+
     rel_file = 'data/relationEmbedPlot.pkl'
-
-    df = pd.DataFrame(
-        {'classes': list(classes.keys()),
-         'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    df.to_pickle(cls_file)
-
     df = pd.DataFrame(
         {'relations': list(relations.keys()),
          'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
+
     df.to_pickle(rel_file)
-    torch.save(model, './netPlot.pkl')
+
+    # torch.save(model, './netPlot.pkl')
 
 
 
@@ -97,7 +127,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs=7001 ):
+def train(model, data, optimizer, aclasses, relations, num_epochs= 1000 ):
+    print(relations)
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()
@@ -121,7 +152,7 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=7001 ):
         #         embeds[i, :] = emb
         #     l1 = embeds[:, :-2]
         #     r1 = embeds[:, 2:]
-        #     plot_embeddings(l1, r1,  classes, epoch)
+        #     plot_embeddings(l1,l1+ r1,  classes, epoch)
 
 
 
