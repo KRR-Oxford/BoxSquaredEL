@@ -62,7 +62,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= -0.1 )
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= 0 )
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
@@ -85,20 +85,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         cls_file = 'data/classEmbedPlot'+str(i)+'.pkl'
 
         weights = model.classEmbeddingDict.weight
-        c1 = torch.cat((weights[:,:embedding_dim], torch.zeros(weights[:,:embedding_dim].shape)+r),dim = 1)
-        c2 = torch.cat((weights[:,embedding_dim:], torch.zeros(weights[:,:embedding_dim].shape)+r),dim = 1)
-
-        c1 = weights[:,:embedding_dim]
-        c2 = weights[:,embedding_dim:]
-
-       # classEmbedding = model.relationModel
-        c1_output  = c1
-        c2_output =  c2
         classEmbedding = weights
-
-     #   classEmbedding = model.classEmbeddingDict.weight
-
-        #print(model.classEmbeddingDict.weight.shape)
 
         df = pd.DataFrame(
             {'classes': list(classes.keys()),
@@ -127,7 +114,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs= 1000 ):
+def train(model, data, optimizer, aclasses, relations, num_epochs= 2000 ):
     print(relations)
     model.train()
     for epoch in range(num_epochs):

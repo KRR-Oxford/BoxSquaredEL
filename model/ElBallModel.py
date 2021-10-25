@@ -92,15 +92,15 @@ class ELBallModel(nn.Module):
         r = self.relationEmbeddingDict(input[:, 1])
         d = self.classEmbeddingDict(input[:, 2])
 
-        x1 = c[:, 0:-1]
-        x2 = d[:, 0:-1]
+        x1 = c[:, 0:50]
+        x2 = d[:, 0:50]
 
 
-        rc = torch.abs(c[:, -1])
-        rd = torch.abs(d[:, -1])
+        rc = torch.abs(c[:, -1]).reshape([-1,1])
+        rd = torch.abs(d[:, -1]).reshape([-1,1])
 
         x3 = x1 + r
-        euc = torch.linalg.norm(x3 - x2, axis=1)
+        euc = torch.linalg.norm(x3 - x2, axis=1).reshape([-1,1])
         relu = torch.nn.ReLU()
         dst = torch.reshape(relu(euc + rc - rd + self.margin), [-1, 1])
 
@@ -111,13 +111,13 @@ class ELBallModel(nn.Module):
         r = self.relationEmbeddingDict(input[:, 1])
         d = self.classEmbeddingDict(input[:, 2])
 
-        x1 = c[:, 0:-1]
-        x2 = d[:, 0:-1]
-        rc = torch.abs(c[:, -1])
-        rd = torch.abs(d[:, -1])
+        x1 = c[:, 0:50]
+        x2 = d[:, 0: 50]
+        rc = torch.abs(c[:, -1]).reshape([-1,1])
+        rd = torch.abs(d[:, -1]).reshape([-1,1])
 
         x3 = x1 + r
-        euc = torch.linalg.norm(x3 - x2, axis=1)
+        euc = torch.linalg.norm(x3 - x2, axis=1).reshape([-1,1])
 
      #   relu = torch.nn
         dst = torch.reshape((-(euc - rc - rd) + self.margin), [-1, 1])
@@ -153,8 +153,8 @@ class ELBallModel(nn.Module):
         rc = torch.reshape(torch.abs(c[:, -1]), [-1, 1])
         rd = torch.reshape(torch.abs(d[:, -1]), [-1, 1])
 
-        x1 = c[:, 0:-1]
-        x2 = d[:, 0:-1]
+        x1 = c[:, 0:50]
+        x2 = d[:, 0:50]
 
         sr = rc + rd
 
@@ -175,18 +175,18 @@ class ELBallModel(nn.Module):
         #print(input['disjoint'])
         # nf1
 
-        rand_index = np.random.choice(len(input['nf1']), size=batch)
-       # print(len(input['nf1']))
-        nf1Data = input['nf1'][rand_index]
-        nf1Data = nf1Data.to(self.device)
-        loss1 = self.nf1Loss(nf1Data)
+       #  rand_index = np.random.choice(len(input['nf1']), size=batch)
+       # # print(len(input['nf1']))
+       #  nf1Data = input['nf1'][rand_index]
+       #  nf1Data = nf1Data.to(self.device)
+       #  loss1 = self.nf1Loss(nf1Data)
 
         # nf2
-        rand_index = np.random.choice(len(input['nf2']), size=batch)
-     #   print(input['nf2'])
-        nf2Data = input['nf2'][rand_index]
-        nf2Data = nf2Data.to(self.device)
-        loss2 = self.nf2Loss(nf2Data)
+     #    rand_index = np.random.choice(len(input['nf2']), size=batch)
+     # #   print(input['nf2'])
+     #    nf2Data = input['nf2'][rand_index]
+     #    nf2Data = nf2Data.to(self.device)
+     #    loss2 = self.nf2Loss(nf2Data)
 
         # nf3
         rand_index = np.random.choice(len(input['nf3']), size=batch)
@@ -196,10 +196,10 @@ class ELBallModel(nn.Module):
         loss3 = self.nf3Loss(nf3Data)
 
         # nf4
-        rand_index = np.random.choice(len(input['nf4']), size=batch)
-        nf4Data = input['nf4'][rand_index]
-        nf4Data = nf4Data.to(self.device)
-        loss4 = self.nf4Loss(nf4Data)
+        # rand_index = np.random.choice(len(input['nf4']), size=batch)
+        # nf4Data = input['nf4'][rand_index]
+        # nf4Data = nf4Data.to(self.device)
+        # loss4 = self.nf4Loss(nf4Data)
 
         # disJoint
         rand_index = np.random.choice(len(input['disjoint']), size=batch)
@@ -209,10 +209,10 @@ class ELBallModel(nn.Module):
         disJointLoss = self.disJointLoss(disJointData)
 
         # top_loss
-        rand_index = np.random.choice(len(input['top']), size=batch)
-        topData = input['top'][rand_index]
-        topData = topData.to(self.device)
-        topLoss = self.top_loss(topData)
+        # rand_index = np.random.choice(len(input['top']), size=batch)
+        # topData = input['top'][rand_index]
+        # topData = topData.to(self.device)
+        # topLoss = self.top_loss(topData)
 
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
