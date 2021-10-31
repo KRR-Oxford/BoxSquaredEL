@@ -114,8 +114,15 @@ def load_data(filename):
     for c, r, d in data['nf3']:
         if r != inter_ind:
             continue
+
+        data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
+        data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
         data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
+        data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
+        data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
+
+
    # print(len(data['nf1']))
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)

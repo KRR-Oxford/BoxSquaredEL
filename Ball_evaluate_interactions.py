@@ -98,7 +98,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
-    embeds = embeds[:, :50]
+    embeds = embeds[:, :-1]
     prot_index = list(proteins.values())
     prot_rs = rs[prot_index, :]
     prot_embeds = embeds[prot_index, :]
@@ -164,6 +164,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             # edst = np.maximum(0, dst - rc - prot_rs - margin)
             # res = (overlap + 1 / np.exp(edst)) / 2
             res = dst + rc - prot_rs
+            res = np.linalg.norm(prot_embeds - ec, axis=1)
 
             res = res.flatten()
             preds[r][c, :] = res

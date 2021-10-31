@@ -87,7 +87,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses,num_epochs=1000):
+def train(model, data, optimizer, aclasses,num_epochs=4000):
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()

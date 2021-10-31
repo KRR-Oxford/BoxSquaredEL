@@ -56,19 +56,19 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
 
-    device = torch.device('cpu')
+    device = torch.device('cuda:0')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin= 0.1 )
+    model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin=0)
 
     #
-    # checkpoint = torch.load('./netPlot.pkl')
-    # model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
+    checkpoint = torch.load('./netPlot.pkl')
+    model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     #optimizer = TheOptimizerClass()
     #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # 加载优化器参数
     model = model.to(device)
@@ -81,17 +81,38 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 
     for i,r in zip(range(len(relations)),model.relationEmbeddingDict.weight):
+        if relations['<http://interacts>']==i:
 
-        cls_file = 'data/classEmbedPlot'+str(i)+'.pkl'
+            cls_file = 'data/classHeadEmbedPlot.pkl'
 
-        weights = model.classEmbeddingDict.weight
-        classEmbedding = weights
+            weights = model.classEmbeddingDict.weight
+            c1 = torch.cat((weights[:, :embedding_dim], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
+            c2 = torch.cat((weights[:, embedding_dim:], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
 
-        df = pd.DataFrame(
-            {'classes': list(classes.keys()),
-             'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
-        df.to_pickle(cls_file)
+            c1_output = model.relationModel(c1)
+            c2_output = model.relationModel(c2)
 
+            classEmbedding = torch.cat([c1_output,c2_output],dim=1)
+            df = pd.DataFrame(
+                {'classes': list(classes.keys()),
+                 'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
+            df.to_pickle(cls_file)
+
+
+            cls_file = 'data/classTailEmbedPlot.pkl'
+
+            weights = model.classEmbeddingDict.weight
+            c1 = torch.cat((weights[:, :embedding_dim], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
+            c2 = torch.cat((weights[:, embedding_dim:], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
+
+            c1_output = model.tailRelationModel(c1)
+            c2_output = model.tailRelationModel(c2)
+            classEmbedding = torch.cat([c1_output,c2_output],dim=1)
+            df = pd.DataFrame(
+                {'classes': list(classes.keys()),
+                 'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
+            df.to_pickle(cls_file)
+            break
 
 
     rel_file = 'data/relationEmbedPlot.pkl'
@@ -114,7 +135,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs= 2000 ):
+def train(model, data, optimizer, aclasses, relations, num_epochs=12000 ):
     print(relations)
     model.train()
     for epoch in range(num_epochs):
