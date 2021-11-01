@@ -65,8 +65,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     model = ELBox2BallModel(device,len(classes), len(relations), embedding_dim=embedding_dim, margin=0)
 
     #
-    checkpoint = torch.load('./netPlot.pkl')
-    model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
+    # checkpoint = torch.load('./netPlot.pkl')
+    # model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     #optimizer = TheOptimizerClass()
@@ -135,7 +135,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs=12000 ):
+def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
     print(relations)
     model.train()
     for epoch in range(num_epochs):
