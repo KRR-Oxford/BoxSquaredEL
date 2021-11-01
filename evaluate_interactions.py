@@ -162,7 +162,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             er = rembeds[r, :].reshape(1, -1)
 
             ec += er
-            rc += er
+
 
             prot_embedsNew = prot_embeds_tail
 
@@ -192,8 +192,30 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             human 50 -0.1 1 0.08 0.45 445.89 0.92yeast-classes-normalized.owl
             human 50 -0.1 1 0.18 0.60 400.83 0.93
             '''
+            # cr = np.abs(rc)
+            # dr = np.abs(prot_rsNew)
+            rr = np.linalg.norm(rc, axis=1).reshape([-1, 1]) / 2
 
-            res =     np.linalg.norm(prot_embedsNew  -ec, axis=1)
+            rd = np.linalg.norm(prot_rsNew, axis=1).reshape([-1, 1]) / 2
+            cen1 = ec   + rc / 2
+            cen2 = prot_embedsNew + prot_rsNew / 2
+            euc = np.abs(cen1 - cen2)
+
+            zeros = (np.zeros(euc.shape))
+
+            # res =  np.linalg.norm(np.maximum(euc + cr - dr , zeros), axis=1)
+
+
+            euc = np.linalg.norm(cen1 - cen2, axis=1).reshape([-1, 1])
+            euc = euc-rr
+
+
+            #   relu = torch.nn
+            res = np.reshape(((euc  - rd) ), -1)  # + rightLessLeftLoss
+         #   print(res )
+            #
+            # res =     np.linalg.norm(prot_embedsNew  -ec, axis=1)
+            # res = np.linalg.norm(cen1 - cen2, axis=1)
          #   print(res)
 
             '''
