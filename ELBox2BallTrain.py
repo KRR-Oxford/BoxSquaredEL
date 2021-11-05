@@ -56,13 +56,13 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
 
-    device = torch.device('cuda:0')
+    device = torch.device('cpu')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0.01)
+    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0 )
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
@@ -136,7 +136,9 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 #ballRelationEmbed
 
 def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
-    print(relations)
+    # print(aclasses)
+    # print(0/0)
+    # print(relations)
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()
@@ -162,10 +164,41 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
         #     r1 = embeds[:, 2:]
         # #    print(l1,r1)
         #     plot_embeddings(l1,l1+ np.abs(r1),  classes, epoch)
+        #
+        #     #################################################################
+        #     weights = model.classEmbeddingDict.weight
+        #     r = model.relationEmbeddingDict(torch.tensor([0]).to('cpu'))
+        #     c1 = torch.cat((weights[:, :2], torch.zeros(weights[:, :2].shape) + r), dim=1)
+        #     c2 = torch.cat((weights[:, 2:], torch.zeros(weights[:, :2].shape) + r), dim=1)
+        #
+        #     c1_output = model.relationModel(c1)-r
+        #     c2_output = model.relationModel(c2)
+        #
+        #     classEmbeddingHead = torch.cat([c1_output, c2_output], dim=1)
+        #
+        #
+        #
+        #     weights = model.classEmbeddingDict.weight
+        #     c1 = torch.cat((weights[:, :2], torch.zeros(weights[:, :2].shape) + r), dim=1)
+        #     c2 = torch.cat((weights[:, 2:], torch.zeros(weights[:, :2].shape) + r), dim=1)
+        #
+        #     c1_output = model.tailRelationModel(c1)
+        #     c2_output = model.tailRelationModel(c2)
+        #     classEmbeddingTail = torch.cat([c1_output, c2_output], dim=1)
+        #     #
+        #     # {'male': 0, 'person': 1, 'female': 2, 'father': 3, 'mother': 4, 'parent': 5, 'owl:Nothing': 6,
+        #     #  'owl:Thing': 7}
+        #
+        #     embeds =  torch.cat((torch.unsqueeze(classEmbeddingHead[aclasses['person']],0), torch.unsqueeze(classEmbeddingTail[aclasses['parent']],0)),dim=0).clone().detach().cpu().numpy()
+        #     print(embeds)
+        #     dicta = {0:'person',1:'parent'}
+        #
+        #     l1 = embeds[:, :2]
+        #     r1 = embeds[:, 2:]
+        #     #    print(l1,r1)
+        #     plot_embeddings(l1, l1 + np.abs(r1), dicta, epoch+1)
 
-
-
-     #    for key in classes.keys():
+    #    for key in classes.keys():
      #        currentClass = torch.tensor(classes[key])
      #        embedding = torch.tensor(model.classEmbeddingDict(currentClass))
      #        # classCenter = model.centerTransModel(embedding)

@@ -116,11 +116,11 @@ def load_data(filename):
             continue
 
         data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
-        data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
-        data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
+        # data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
+        # data['nf3_neg'].append((c, r, np.random.choice(prot_ids)))
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
-        data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
-        data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
+        # data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
+        # data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
 
 
    # print(len(data['nf1']))
