@@ -51,8 +51,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     reg_norm = 1
     org = 'human'
 
-    cls_df_tail = pd.read_pickle('data/classTailEmbedPlot.pkl')
-    cls_df_head = pd.read_pickle('data/classHeadEmbedPlot.pkl')
+    cls_df_tail = pd.read_pickle('data/classHeadEmbedPlot.pkl')
+    cls_df_head = pd.read_pickle('data/classTailEmbedPlot.pkl')
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df_head)
     nb_relations = len(rel_df)
@@ -194,11 +194,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             '''
             # cr = np.abs(rc)
             # dr = np.abs(prot_rsNew)
-            rr = np.linalg.norm(rc, axis=1).reshape([-1, 1]) / 2
+            rr = np.abs(rc)
 
-            rd = np.linalg.norm(prot_rsNew, axis=1).reshape([-1, 1]) / 2
-            cen1 = ec   + rc / 2
-            cen2 = prot_embedsNew + prot_rsNew / 2
+            rd = np.abs(prot_rsNew)
+            cen1 = ec
+            cen2 = prot_embedsNew
             euc = np.abs(cen1 - cen2)
 
             zeros = (np.zeros(euc.shape))
@@ -207,11 +207,13 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
 
             euc = np.linalg.norm(cen1 - cen2, axis=1).reshape([-1, 1])
-            euc = euc-rr
-
+        #    euc = np.abs(cen1 - cen2)
+            #res = torch.reshape(np.sum(euc - rr - rd,dim=1 ), [-1, 1])
 
             #   relu = torch.nn
-            res = np.reshape(((euc  - rd) ), -1)  # + rightLessLeftLoss
+           # dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - rd - rr , np.zeros()), axis=1), [-1, 1])
+
+            res = np.reshape(((euc  ) ), -1)  # + rightLessLeftLoss
          #   print(res )
             #
             # res =     np.linalg.norm(prot_embedsNew  -ec, axis=1)

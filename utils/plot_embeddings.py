@@ -64,6 +64,8 @@ def plot_embeddings(left,right, classes, epoch):
     ax.set_xlim(-5, 4)
     ax.set_ylim(-3, 4)
     for i in range(left.shape[0]):
+        if classes[i]=='C' or classes[i]=='owl:Nothing':
+            continue
         # if classes[i].startswith('owl:'):
         #     continue
         x, y = left[i, 0], left[i, 1]
@@ -72,12 +74,13 @@ def plot_embeddings(left,right, classes, epoch):
 
         ax.add_artist(plt.Rectangle(
             (x, y), width,height, fill=False, edgecolor=colors[i % len(colors)], label=classes[i],linewidth=1))
-        ax.annotate(classes[i], xy=(x+width/2, y+height/2), fontsize=3, ha="center", color=colors[i % len(colors)])
+        ax.annotate(classes[i], xy=(x+width/2, y+height/2), fontsize=9, ha="center", color=colors[i % len(colors)])
     # ax.legend()
     ax.grid(True)
     # filename = 'embeds.svg'
     # if epoch:
     filename = 'graph/embeds_'+str(epoch)+'.svg'
+    plt.axis('off')
     plt.savefig(filename)
     # plt.plot([0.01,0.01],[0.01,0.01])
     # plt.show()

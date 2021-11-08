@@ -225,7 +225,7 @@ class ELBallModel(nn.Module):
         #  print( loss1,loss2,disJointLoss)
         print(negLoss.sum().item()/batch)
 
-        totalLoss =  loss4+ negLoss+loss3 #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
+        totalLoss =  loss1+loss2+disJointLoss+loss4+ negLoss+loss3 #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
 
         # print(torch.sum(totalLoss*totalLoss))
         # print(torch.sqrt(torch.sum(totalLoss*totalLoss)))

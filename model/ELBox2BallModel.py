@@ -11,23 +11,28 @@ class RelationModel(nn.Module):
 
 
         self.mlp = nn.Sequential(
-            nn.Linear( 2*embedding_dim, 16*embedding_dim),
-           nn.LayerNorm(16*embedding_dim),
+            nn.Linear( 2*embedding_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim),
             nn.Tanh(),
-            nn.Linear(16 * embedding_dim,  16*embedding_dim),
-           nn.LayerNorm(embedding_dim * 16),
-            nn.Tanh(),
-            nn.Linear(16 * embedding_dim, 16 * embedding_dim),
-           nn.LayerNorm(embedding_dim * 16),
-            nn.Tanh(),
-            nn.Linear(16*embedding_dim,  embedding_dim),
-           nn.LayerNorm(embedding_dim),
-            nn.Tanh(),
+            nn.Linear(embedding_dim, embedding_dim),
+
+
+           # nn.LayerNorm(16*embedding_dim),
+           #  nn.Tanh(),
+           #  nn.Linear(16 * embedding_dim,  8*embedding_dim),
+           # nn.LayerNorm(embedding_dim * 8),
+           #  nn.Tanh(),
+           #  nn.Linear(8 * embedding_dim, 2 * embedding_dim),
+           # nn.LayerNorm(embedding_dim * 2),
+           #  nn.Tanh(),
+           #  nn.Linear(2*embedding_dim,  embedding_dim),
+           # nn.LayerNorm(embedding_dim),
+           #  nn.Tanh(),
         )
 
     def forward(self, input):
         #input[:,:50]
-        return   input[:,:50]#self.mlp(input  )
+        return  self.mlp(input  )
 class ELBox2BallModel(nn.Module):
     '''
 
@@ -38,15 +43,16 @@ class ELBox2BallModel(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim, margin=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, margin=0,margin1=0):
         super(ELBox2BallModel, self).__init__()
         self.margin = margin
+        self.margin1 = margin1
         self.classNum = len(class_)
         self.class_ = class_
         self.relationNum = relationNum
         self.device = device
         self.reg_norm=1
-        self.inf=5
+        self.inf=4
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim*2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -59,7 +65,7 @@ class ELBox2BallModel(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.relationModel = RelationModel(self.embedding_dim)
-        self.tailRelationModel =  RelationModel(self.embedding_dim)
+        self.tailRelationModel = self.relationModel
         for m in self.relationModel.modules():
             if isinstance(m, (nn.Conv2d, nn.Linear)):
                 nn.init.kaiming_normal_(m.weight)
@@ -95,21 +101,21 @@ class ELBox2BallModel(nn.Module):
 
         # box
 
-        cr = torch.abs(c2)/2
-        dr = torch.abs(d2)/2
+        cr = torch.abs(c2)
+        dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
 
-        cen1 = c1  + cr
-        cen2 = d1 + dr
+        cen1 = c1
+        cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr+margin , zeros), axis=1), [-1, 1])
       #  print(cr)
 
-        return dst+torch.reshape(torch.linalg.norm(torch.maximum(0.2-cr, zeros), axis=1), [-1, 1])+\
-               torch.reshape(torch.linalg.norm(torch.maximum( 0.2-dr, zeros), axis=1), [-1, 1])
+        return dst+torch.reshape(torch.linalg.norm(torch.maximum(self.margin-cr, zeros), axis=1), [-1, 1])+\
+               torch.reshape(torch.linalg.norm(torch.maximum( self.margin-dr, zeros), axis=1), [-1, 1])
 
     # cClass and dCLass isSubSetof eClass
     def nf2Loss(self, input):
@@ -126,23 +132,22 @@ class ELBox2BallModel(nn.Module):
 
 
 
-        startAll = torch.maximum(c1, d1)
+        startAll = torch.maximum(c1-c2, d1-d2)
         endAll = torch.minimum(c1 + c2, d1 + d2)
 
         newR = torch.abs(startAll-endAll)/2
-        er = torch.abs(e2)/2
+        er = torch.abs(e2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
 
         cen1 =(startAll+endAll)/2
-        cen2 = e1 + er
+        cen2 = e1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + newR - er + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + newR - er +margin , zeros), axis=1), [-1, 1])
 
         return dst
-
     def disJointLoss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         d = self.classEmbeddingDict(input[:, 1])
@@ -155,19 +160,22 @@ class ELBox2BallModel(nn.Module):
 
         # box
 
-        cr = torch.abs(c2)/2
-        dr = torch.abs(d2)/2
+        cr = torch.abs(c2)
+        dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
 
-        cen1 = c1 + cr
-        cen2 = d1 +dr
+        cen1 = c1
+        cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr+margin , zeros), axis=1), [-1, 1])
 
-        return dst
+        return dst+torch.reshape(torch.linalg.norm(torch.maximum(self.margin-cr, zeros), axis=1), [-1, 1])+\
+               torch.reshape(torch.linalg.norm(torch.maximum( self.margin-dr, zeros), axis=1), [-1, 1])
+
+
 
 
     def nf3Loss(self, input):
@@ -193,19 +201,22 @@ class ELBox2BallModel(nn.Module):
         d1 = self.tailRelationModel(d1_input)
         d2 = torch.abs(self.tailRelationModel(d2_input))
 
-        cr = torch.abs(c2)/2
-        dr = torch.abs(d2)/2
+        cr = torch.abs(c2)
+        dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False) ).to(self.device)
 
-        cen1 = c1+r+cr
-        cen2 = d1+dr
+        cen1 = c1+r
+        cen2 = d1
         euc = torch.abs(cen1-cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum( euc+cr-dr + margin, zeros), axis=1),[-1,1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum( euc+cr-dr +margin , zeros), axis=1),[-1,1])
 
-        return  dst
+        return  dst+torch.reshape(torch.linalg.norm(torch.maximum(self.margin-cr, zeros), axis=1), [-1, 1])+\
+               torch.reshape(torch.linalg.norm(torch.maximum( self.margin-dr, zeros), axis=1), [-1, 1])
+
+
 
     def neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
@@ -230,19 +241,22 @@ class ELBox2BallModel(nn.Module):
         d1 = self.tailRelationModel(d1_input)
         d2 = torch.abs(self.tailRelationModel(d2_input))
 
-        cr = torch.abs(c2) / 2
-        dr = torch.abs(d2) / 2
+        cr = torch.abs(c2)
+        dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
 
-        cen1 = c1 + r + cr
-        cen2 = d1 + dr
+        cen1 = c1 + r
+        cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr-margin , zeros), axis=1), [-1, 1])
 
-        return dst
+        return dst+torch.reshape(torch.linalg.norm(torch.maximum(self.margin-cr, zeros), axis=1), [-1, 1])+\
+               torch.reshape(torch.linalg.norm(torch.maximum( self.margin-dr, zeros), axis=1), [-1, 1])
+
+
 
     # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
@@ -270,76 +284,43 @@ class ELBox2BallModel(nn.Module):
         d1 = self.tailRelationModel(d1_input)
         d2 = torch.abs( self.tailRelationModel(d2_input))
 
-        cr = torch.abs(c2)/2
-        dr = torch.abs(d2)/2
+        cr = torch.abs(c2)
+        dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin).to(self.device)
+        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
 
-        cen1 = c1 - r +cr
-        cen2 = d1 + dr
+        cen1 = c1 - r
+        cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        leftBottomLimit = torch.reshape(torch.linalg.norm(torch.maximum(d1 - c1 - r + margin, zeros), axis=1, ord=1),
-                                        [-1, 1])
-        righttopLimit = torch.reshape(torch.linalg.norm(torch.maximum(c2 + c1 + r - d2 - d1 + margin, zeros), axis=1),
-                                      [-1, 1])
-        shapeLimit = torch.reshape(torch.linalg.norm(torch.maximum(- d2 + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr+margin  , zeros), axis=1), [-1, 1])
 
-        shapeLimit += torch.reshape(torch.linalg.norm(torch.maximum(- c2 + margin, zeros), axis=1), [-1, 1])
+        return dst+torch.reshape(torch.linalg.norm(torch.maximum(self.margin-cr, zeros), axis=1), [-1, 1])+\
+               torch.reshape(torch.linalg.norm(torch.maximum( self.margin-dr, zeros), axis=1), [-1, 1])
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
 
-        return dst#+ self.reg(c1) + self.reg(c2) + self.reg(d1)+ self.reg(d2)
-        # c = self.classEmbeddingDict(input[:, 1])
-        # r = self.relationEmbeddingDict(input[:, 0])
-        # d = self.classEmbeddingDict(input[:, 2])
-        #
-        # c1_o = c[:, :self.embedding_dim]
-        # c2_o = c[:, self.embedding_dim:]
-        #
-        # d1_o = d[:, :self.embedding_dim]
-        # d2_o = d[:, self.embedding_dim:]
-        #
-        # c1_input = torch.cat((c1_o, r), dim=1)
-        # c2_input = torch.cat((c2_o, r), dim=1)
-        #
-        # d1_input = torch.cat((d1_o, r), dim=1)
-        # d2_input = torch.cat((d2_o, r), dim=1)
-        #
-        # c1 = self.relationModel(c1_input)
-        # c2 = self.relationModel(c2_input)
-        #
-        # d1 = self.tailRelationModel(d1_input)
-        # d2 = self.tailRelationModel(d2_input)
-        #
-        # rc = torch.linalg.norm(c2, axis=1).reshape([-1, 1]) / 2
-        # rd = torch.linalg.norm(d2, axis=1).reshape([-1, 1]) / 2
-        #
-        # startAll = torch.maximum(c1, d1)
-        # endAll = torch.minimum(c2 + c1 + r, d2 + d1)
-        # relu1 = nn.ReLU()
-        #
-        # rightLessLeftLoss = torch.reshape(
-        #     torch.sum(relu1(endAll - startAll) + (torch.ones(endAll.shape, requires_grad=False) * 0).to(self.device),
-        #               dim=1), [-1, 1])
-        # print('rightLessLeftLoss: ', rightLessLeftLoss.sum().item() / 512)
-        #
-        # x3 = c1-r
-        # euc = torch.linalg.norm(x3 - d1, axis=1).reshape([-1, 1])
-        #
-        # #   relu = torch.nn
-        # dst = torch.reshape(((euc + rc - rd) + self.margin), [-1, 1])  # + rightLessLeftLoss
-        # return dst  # + self.reg(x1) + self.reg(x2)
+
 
 
 
 
 
     def top_loss(self, input):
-        d = self.classEmbeddingDict(input[0])
-        rd = torch.reshape(torch.abs(d[-1]), [-1, 1])
-        return torch.abs(rd - self.inf)
+        d = self.classEmbeddingDict(input)
+
+        d1 = d[:, :self.embedding_dim]
+
+        d2 = torch.abs(d[:, self.embedding_dim:])
+
+
+        dr = torch.abs(d2) / 2
+        zeros = torch.zeros(dr.shape,requires_grad=False).to(self.device)
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(self.inf - dr, zeros), axis=1), [-1, 1])\
+        +torch.reshape(torch.linalg.norm(torch.maximum(self.inf + d1, zeros), axis=1), [-1, 1])
+
+
+        return dst
 
 
 
@@ -386,10 +367,12 @@ class ELBox2BallModel(nn.Module):
         disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
 
         # top_loss
-        # rand_index = np.random.choice(len(input['top']), size=batch)
-        # topData = input['top'][rand_index]
-        # topData = topData.to(self.device)
-        # topLoss = self.top_loss(topData)
+        rand_index = np.random.choice(len(input['top']), size=batch)
+        topData = input['top'][rand_index]
+        topData = topData.to(self.device)
+        topLoss = self.top_loss(topData)
+        mseloss = nn.MSELoss(reduce=True)
+        topLoss = mseloss(topLoss, torch.ones(topLoss.shape, requires_grad=False).to(self.device) * 2)
 
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
@@ -401,8 +384,11 @@ class ELBox2BallModel(nn.Module):
         negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device)*2)
 
         # print(loss1,loss2,loss3, loss4,disJointLoss,negLoss)
-        print(  loss3, loss2,   disJointLoss)
+        print(  loss3, loss4,   negLoss)
 #  loss1+loss2+disJointLoss+
-        totalLoss =  loss3+loss4+ negLoss  # +negLoss #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
+        totalLoss = loss1+loss2+disJointLoss+loss3+loss4#+topLoss#+negLoss#+ negLoss  # +negLoss #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
 
         return (totalLoss)
+
+#human 50 -0.1 1 0.08 0.50 282.43 0.95
+#human 50 -0.1 1 0.19 0.67 236.05 0.96
