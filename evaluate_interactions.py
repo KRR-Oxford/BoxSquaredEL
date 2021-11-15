@@ -107,12 +107,17 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     train_data = load_data(train_data_file, classes, relations)
     valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
+    count = 0
     for c, r, d in train_data:
+        count+=1
         c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
         trlabels[r][c, d] = 10000
+    print(trlabels)
+   # print(count)
     # for c, r, d in valid_data:
+
     #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
     #     if r not in trlabels:
     #         trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
@@ -161,7 +166,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             # relation左下
             er = rembeds[r, :].reshape(1, -1)
 
-            ec += er
+           # ec += er
 
 
             prot_embedsNew = prot_embeds_tail
@@ -199,21 +204,18 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             rd = np.abs(prot_rsNew)
             cen1 = ec
             cen2 = prot_embedsNew
-            euc = np.abs(cen1 - cen2)
-
-            zeros = (np.zeros(euc.shape))
 
             # res =  np.linalg.norm(np.maximum(euc + cr - dr , zeros), axis=1)
 
 
-            euc = np.linalg.norm(cen1 - cen2, axis=1).reshape([-1, 1])
+            euc = np.abs(cen1 - cen2)
         #    euc = np.abs(cen1 - cen2)
             #res = torch.reshape(np.sum(euc - rr - rd,dim=1 ), [-1, 1])
 
             #   relu = torch.nn
            # dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - rd - rr , np.zeros()), axis=1), [-1, 1])
 
-            res = np.reshape(((euc  ) ), -1)  # + rightLessLeftLoss
+            res = np.reshape((np.linalg.norm(np.maximum(euc -rd+rr,np.zeros(euc.shape)),axis=1 ) ), -1)  # + rightLessLeftLoss
          #   print(res )
             #
             # res =     np.linalg.norm(prot_embedsNew  -ec, axis=1)
@@ -281,6 +283,9 @@ human 50 -0.1 1 0.23 0.68 313.47 0.94'''
             ranks[rank] += 1
 
             # Filtered rank
+           # print(res.shape,trlabels[r][c, :].shape)
+            rank1 = rank
+           # print(rank,1)
             index = rankdata((res * trlabels[r][c, :]), method='average')
             rank = index[d]
             if rank == 1:
@@ -290,6 +295,7 @@ human 50 -0.1 1 0.23 0.68 313.47 0.94'''
             if rank <= 100:
                 ftop100 += 1
             fmean_rank += rank
+
 
             if rank not in franks:
                 franks[rank] = 0

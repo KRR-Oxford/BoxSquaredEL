@@ -32,6 +32,7 @@ def load_data(filename):
                 it = line.split(' ')
                 c = it[0][21:]
                 d = it[1][:-1]
+
                 e = it[2]
                 if c not in classes:
                     classes[c] = len(classes)
@@ -42,7 +43,9 @@ def load_data(filename):
                 form = 'nf2'
                 if e == 'owl:Nothing':
                     form = 'disjoint'
+
                 data[form].append((classes[c], classes[d], classes[e]))
+
 
             elif line.startswith('ObjectSomeValuesFrom('):
                 # R some C SubClassOf D

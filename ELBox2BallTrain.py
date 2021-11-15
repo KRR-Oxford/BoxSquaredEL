@@ -14,7 +14,7 @@ import  numpy as np
 #family_normalized.owl
 #yeast-classes-normalized.owl
 @ck.option(
-    '--data-file', '-df', default='data/data-train/family_normalized.owl',
+    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
     '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v10.5.txt',
@@ -61,14 +61,14 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     #training procedure
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
-    embedding_dim = 2
-    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0.2,margin1=0)
+    embedding_dim = 50
+    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0,margin1=-0.05)
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
     # model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     #optimizer = TheOptimizerClass()
     #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # 加载优化器参数
     model = model.to(device)
@@ -122,7 +122,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     df.to_pickle(rel_file)
 
-    # torch.save(model, './netPlot.pkl')
+#  torch.save(model, './netPlot.pkl')
 
 
 
@@ -135,7 +135,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
+def train(model, data, optimizer, aclasses, relations, num_epochs=8000):
     print(relations)
     model.train()
     for epoch in range(num_epochs):
@@ -146,21 +146,21 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
         loss.backward()
         optimizer.step()
 
-        if epoch%100==0:
-
-            cls_df = list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())
-            nb_classes = len(cls_df)
-
-            embeds_list = cls_df
-            classes = {k: v for k, v in enumerate(aclasses)}
-
-            size = len(embeds_list[0])
-            embeds = np.zeros((nb_classes, size), dtype=np.float32)
-            for i, emb in enumerate(embeds_list):
-                embeds[i, :] = emb
-            l1 = embeds[:, :-2]*2
-            r1 = np.abs(embeds[:, 2:])*2
-            plot_embeddings(l1-r1,l1+ r1,  classes, epoch)
+        # if epoch%100==0:
+        #
+        #     cls_df = list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())
+        #     nb_classes = len(cls_df)
+        #
+        #     embeds_list = cls_df
+        #     classes = {k: v for k, v in enumerate(aclasses)}
+        #
+        #     size = len(embeds_list[0])
+        #     embeds = np.zeros((nb_classes, size), dtype=np.float32)
+        #     for i, emb in enumerate(embeds_list):
+        #         embeds[i, :] = emb
+        #     l1 = embeds[:, :-2]*2
+        #     r1 = np.abs(embeds[:, 2:])*2
+        #     plot_embeddings(l1-r1,l1+ r1,  classes, epoch)
 
 
 
@@ -172,7 +172,7 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=10000):
      #       # print(key, embedding+torch.Tensor([2]))
      # #   if (epoch+1)% 2000 == 0:
 
-
+#-0.05 50 10000
 
 if __name__ == '__main__':
     main()
