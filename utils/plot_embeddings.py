@@ -61,10 +61,10 @@ def plot_embeddings(left,right, classes, epoch):
 
     fig, ax =  plt.subplots()
    # plt.axis('equal')
-    ax.set_xlim(-5, 4)
-    ax.set_ylim(-3, 4)
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-3, 3)
     for i in range(left.shape[0]):
-        if classes[i]=='C' or classes[i]=='owl:Nothing':
+        if classes[i]=='C' or classes[i]=='owl:Nothing'or classes[i]=='owl:Thing':
             continue
         # if classes[i].startswith('owl:'):
         #     continue
@@ -80,7 +80,7 @@ def plot_embeddings(left,right, classes, epoch):
     # filename = 'embeds.svg'
     # if epoch:
     filename = 'graph/embeds_'+str(epoch)+'.svg'
-    plt.axis('off')
+  #  plt.axis('off')
     plt.savefig(filename)
     # plt.plot([0.01,0.01],[0.01,0.01])
     # plt.show()

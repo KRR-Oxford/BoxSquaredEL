@@ -14,7 +14,7 @@ import  numpy as np
 #family_normalized.owl
 #yeast-classes-normalized.owl
 @ck.option(
-    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
+    '--data-file', '-df', default='data/data-train/go_latest_norm_mod.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
     '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v10.5.txt',
@@ -62,7 +62,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0,margin1=-0.05)
+    model = ELBox2BallModel(device,classes, len(relations), embedding_dim=embedding_dim, margin=0.1,margin1=0)
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
@@ -78,51 +78,22 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     # rel_file = 'data/relationEmbed_TransRBox' + str(epoch + 1) + '.pkl'
     model = model.to('cpu')
 
+    cls_file = 'data/classGoEmbedPlot.pkl'
+    df = pd.DataFrame(
+        {'classes': list(classes.keys()),
+         'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    df.to_pickle(cls_file)
 
 
-    for i,r in zip(range(len(relations)),model.relationEmbeddingDict.weight):
-        if relations['<http://interacts>']==i:
 
-            cls_file = 'data/classHeadEmbedPlot.pkl'
-
-            weights = model.classEmbeddingDict.weight
-            c1 = torch.cat((weights[:, :embedding_dim], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
-            c2 = torch.cat((weights[:, embedding_dim:], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
-
-            c1_output = model.relationModel(c1)
-            c2_output = model.relationModel(c2)
-
-            classEmbedding = torch.cat([c1_output,c2_output],dim=1)
-            df = pd.DataFrame(
-                {'classes': list(classes.keys()),
-                 'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
-            df.to_pickle(cls_file)
-
-
-            cls_file = 'data/classTailEmbedPlot.pkl'
-
-            weights = model.classEmbeddingDict.weight
-            c1 = torch.cat((weights[:, :embedding_dim], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
-            c2 = torch.cat((weights[:, embedding_dim:], torch.zeros(weights[:, :embedding_dim].shape) + r), dim=1)
-
-            c1_output = model.tailRelationModel(c1)
-            c2_output = model.tailRelationModel(c2)
-            classEmbedding = torch.cat([c1_output,c2_output],dim=1)
-            df = pd.DataFrame(
-                {'classes': list(classes.keys()),
-                 'embeddings': list(classEmbedding.clone().detach().cpu().numpy())})
-            df.to_pickle(cls_file)
-            break
-
-
-    rel_file = 'data/relationEmbedPlot.pkl'
+    rel_file = 'data/relationGoEmbedPlot.pkl'
     df = pd.DataFrame(
         {'relations': list(relations.keys()),
          'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
 
     df.to_pickle(rel_file)
 
-#  torch.save(model, './netPlot.pkl')
+    # torch.save(model, './netPlot.pkl')
 
 
 
@@ -135,13 +106,16 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses, relations, num_epochs=8000):
-    print(relations)
+def train(model, data, optimizer, aclasses, relations, num_epochs=2000):
+   # print(aclasses)
     model.train()
+
     for epoch in range(num_epochs):
         #model.zero_grad()
+
         loss = model(data)
-        print('epoch:',epoch,'loss:',round(loss.item(),3))
+        if epoch % 1000 == 0:
+            print('epoch:',epoch,'loss:',round(loss.item(),3))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -172,7 +146,7 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=8000):
      #       # print(key, embedding+torch.Tensor([2]))
      # #   if (epoch+1)% 2000 == 0:
 
-#-0.05 50 10000
+
 
 if __name__ == '__main__':
     main()

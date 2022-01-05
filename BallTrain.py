@@ -16,7 +16,7 @@ import pandas as pd
 #family_normalized.owl
 #yeast-classes-normalized.owl
 @ck.option(
-    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
+    '--data-file', '-df', default='data/data-train/go_latest_norm_mod.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
     '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v10.5.txt',
@@ -57,12 +57,12 @@ import pandas as pd
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    device = torch.device('cpu')
+    device = torch.device('cuda:0')
 
     #training procedure
     train_data, classes, relations = load_data(data_file)
     model = ELBallModel(device,len(classes), len(relations), embedding_dim=50, margin=0)
-    optimizer = optim.Adam(model.parameters(), lr = 0.01)
+    optimizer = optim.Adam(model.parameters(), lr = 0.001)
     model = model.to(device)
     train(model,train_data,optimizer,classes )
     model.eval()
@@ -87,7 +87,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 #ballRelationEmbed
 
-def train(model, data, optimizer, aclasses,num_epochs=3000):
+def train(model, data, optimizer, aclasses,num_epochs=2000):
     model.train()
     for epoch in range(num_epochs):
         #model.zero_grad()

@@ -25,19 +25,19 @@ epoch = '6000'
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/classEmbedPlot.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationEmbedPlot.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationHuEmbedPlot.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -51,8 +51,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     reg_norm = 1
     org = 'human'
 
-    cls_df_tail = pd.read_pickle('data/classHeadEmbedPlot.pkl')
-    cls_df_head = pd.read_pickle('data/classTailEmbedPlot.pkl')
+    cls_df_tail = pd.read_pickle('data/classHuEmbedPlot.pkl')
+    cls_df_head = pd.read_pickle('data/classHuEmbedPlot.pkl')
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df_head)
     nb_relations = len(rel_df)
@@ -115,16 +115,10 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             trlabels[r] = np.ones((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
         trlabels[r][c, d] = 10000
     print(trlabels)
-   # print(count)
-    # for c, r, d in valid_data:
 
-    #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
-    #     if r not in trlabels:
-    #         trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-    #     trlabels[r][c, d] = 1000
 
     test_data = load_data(test_data_file, classes, relations)
-    # print(test_data_file, classes, relations)
+
     top1 = 0
     top10 = 0
     top100 = 0
@@ -140,12 +134,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     eval_data = test_data
     n = len(eval_data)
 
-    # model = torch.load('netPlot.pkl')
-    # transfer_matrix_list = list(model.transfer_matrix.weight.clone().detach().cpu().numpy())
-
-    transfer_matrix_embed = np.zeros((nb_relations, int(size * size / 4)), dtype=np.float32)
-    # for i, emb in enumerate(transfer_matrix_list):
-    #     transfer_matrix_embed[i, :] = emb
 
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
@@ -164,105 +152,25 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             rc = prot_rs_head[c, :].reshape(1, -1)
 
             # relation左下
-            er = rembeds[r, :].reshape(1, -1)
+            er = rembeds[r, :-1].reshape(1, -1)
+          #  er = rembeds[r]
+            ec += er
 
-           # ec += er
 
-
-            prot_embedsNew = prot_embeds_tail
+            prot_embedsNew = prot_embeds_tail+er
 
             prot_rsNew = prot_rs_tail
-            # #1.圆的距离
-            centerPro = (prot_embedsNew + prot_rsNew) / 2
-
-            centerClass = (rc + ec) / 2
-
-            # res = np.linalg.norm(centerPro - centerClass, axis=1) - np.linalg.norm(prot_embedsNew - prot_rsNew,
-            #                                                                        axis=1) / 2 - np.linalg.norm(
-            #     (rc - ec), axis=1) / 2
-
-            #
-            # 2.cosine距离 human 50 -0.1 1 0.10 0.55 244.48 0.96
-            # dis1 = np.linalg.norm(prot_embedsNew,axis=1)+np.linalg.norm(ec,axis=1)
-            # dis2 = np.linalg.norm(rc,axis=1)+np.linalg.norm(prot_rsNew,axis=1)
-            # res = -np.sum(prot_embedsNew * ec,axis=1)/dis1 - np.sum(rc * prot_rsNew,axis=1)/dis2
-
-            # 3.欧氏距离
-
-            '''
-
-            human 50 -0.1 1 0.09 0.56 267.52 0.95
-            human 50 -0.1 1 0.24 0.74 219.65 0.96
-
-            human 50 -0.1 1 0.08 0.45 445.89 0.92yeast-classes-normalized.owl
-            human 50 -0.1 1 0.18 0.60 400.83 0.93
-            '''
-            # cr = np.abs(rc)
-            # dr = np.abs(prot_rsNew)
             rr = np.abs(rc)
 
             rd = np.abs(prot_rsNew)
             cen1 = ec
             cen2 = prot_embedsNew
-
-            # res =  np.linalg.norm(np.maximum(euc + cr - dr , zeros), axis=1)
-
-
             euc = np.abs(cen1 - cen2)
-        #    euc = np.abs(cen1 - cen2)
-            #res = torch.reshape(np.sum(euc - rr - rd,dim=1 ), [-1, 1])
+            res = np.reshape((np.linalg.norm(np.maximum(euc -rd+rr-np.abs(rembeds[r, -1]).reshape(-1,1),np.zeros(euc.shape)),axis=1 ) ), -1)  # + rightLessLeftLoss
+            # res = np.reshape((np.linalg.norm(
+            #     np.maximum(euc - rd + rr , np.zeros(euc.shape)), axis=1)),
+            #                  -1)  # + rightLessLeftLoss
 
-            #   relu = torch.nn
-           # dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - rd - rr , np.zeros()), axis=1), [-1, 1])
-
-            res = np.reshape((np.linalg.norm(np.maximum(euc -rd+rr,np.zeros(euc.shape)),axis=1 ) ), -1)  # + rightLessLeftLoss
-         #   print(res )
-            #
-            # res =     np.linalg.norm(prot_embedsNew  -ec, axis=1)
-            # res = np.linalg.norm(cen1 - cen2, axis=1)
-         #   print(res)
-
-            '''
-            human 50 -0.1 1 0.09 0.52 360.45 0.93
-human 50 -0.1 1 0.23 0.68 313.47 0.94'''
-            # 4.box 相交
-            # startAll = np.maximum(prot_embedsNew, ec)
-            # endAll = np.minimum(prot_rsNew, rc)
-            # res = -np.sum(endAll-startAll,axis=1)#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
-            #  print(res)
-
-            # #5.box 距离
-            # startAll = np.maximum(prot_embedsNew -ec)
-            # endAll = np.minimum(prot_rsNew, rc)
-            # res = (np.sum(prot_embedsNew -ec,axis=1)+np.sum(prot_rsNew - rc,axis=1))#/(np.abs((np.sum(prot_rs-prot_embeds,axis=1))+np.abs(np.sum(rc-ec,axis=1)))+0.1)
-
-            # #6 nf3loss
-            # leftBottomLimit =  np.linalg.norm(np.maximum(prot_embedsNew - ec +0.01   , np.zeros(prot_rsNew.shape))   , axis=1)
-            # righttopLimit =  np.linalg.norm(np.maximum(rc- prot_rsNew +0.01, np.zeros(prot_rsNew.shape)), axis=1)
-            # res =  leftBottomLimit+righttopLimit
-            #  print(res)
-
-            # #圆心间距离
-            # dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
-            # dst = dst.reshape(-1, 1)(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
-            # else:
-            # if rc > 0:
-            #     overlap = np.maximum
-            #     overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
-
-            # edst = np.maximum(0, dst - rc - prot_rs - margin)
-            # res = (overlap + 1 / np.exp(edst)) / 2
-
-            # 圆心间距离 - 圆的半径和
-            # 有交集就是0
-            # res = np.maximum(0, dst - rc - prot_rs - margin)
-
-            # res = np.sqrt(np.sum((edges*edges),axis=1))
-            # print(res.shape,preds[r][c, :].shape)
-            # for i in range(len(res)):
-            #     preds[r][c][i]=res[i]
-            # preds[r][c, :] = np.reshape(preds[r][c, :],[-1,1])
-            # print(res.shape)
             preds[r][c, :] = res
             index = rankdata(res, method='average')
 
@@ -400,3 +308,9 @@ def sim(ec, rc, ed, rd):
 
 if __name__ == '__main__':
     main()
+
+# human 25 -0.1 1 0.10 0.56 227.52 0.96
+# human 25 -0.1 1 0.25 0.75 180.71 0.97
+
+# human 25 -0.1 1 0.10 0.56 215.15 0.96
+# human 25 -0.1 1 0.25 0.75 168.49 0.97

@@ -214,21 +214,20 @@ class ELBallModel(nn.Module):
         topData = topData.to(self.device)
         topLoss = self.top_loss(topData)
 
-        # negLoss
-        rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
-        negData = input['nf3_neg'][rand_index]
-        negData = negData.to(self.device)
-        negLoss = self.neg_loss(negData)
+        # # negLoss
+        # rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
+        # negData = input['nf3_neg'][rand_index]
+        # negData = negData.to(self.device)
+        # negLoss = self.neg_loss(negData)
 
         # print(loss1,loss2, loss3, loss4, disJointLoss,
         #      negLoss)
         #  print( loss1,loss2,disJointLoss)
-        print(negLoss.sum().item()/batch)
+      #  print(negLoss.sum().item()/batch)
 
-        totalLoss =  loss1+loss2+disJointLoss+loss4+ negLoss+loss3 #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
+        totalLoss =  loss1+loss2#+disJointLoss+loss4+loss3 #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
 
         # print(torch.sum(totalLoss*totalLoss))
         # print(torch.sqrt(torch.sum(totalLoss*totalLoss)))
         #print(totalLoss)
         return torch.sum(totalLoss*totalLoss)/batch
-

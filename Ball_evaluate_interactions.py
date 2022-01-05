@@ -23,14 +23,14 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/9606.protein.links.v10.5.txt',
     help='')
 
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/9606.protein.links.v10.5.txt',
     help='')
 #ballClassEmbed.pkl
 #cls_embeddings.pkl
@@ -206,6 +206,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     rank_auc = compute_rank_roc(ranks, len(proteins))
     frank_auc = compute_rank_roc(franks, len(proteins))
 
+
     print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
     print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
 
@@ -289,7 +290,16 @@ def sim(ec, rc, ed, rd):
     overlap = max(0, (2 * rc - max(dst + rc - rd, 0)) / (2 * rc))
     edst = max(0, dst - rc - rd)
     res = (overlap + 1 / np.exp(edst)) / 2
+# YEAST EL++
+# human 50 -0.1 1 0.07 0.48 336.99 0.94
+# human 50 -0.1 1 0.17 0.65 291.24 0.95
 
+# HUMAN EL++
+# human 50 -0.1 1 0.04 0.38 772.00 0.95
+# human 50 -0.1 1 0.13 0.56 700.80 0.95
 
 if __name__ == '__main__':
     main()
+
+
+
