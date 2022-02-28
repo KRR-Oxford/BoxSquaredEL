@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 import logging
 
-from sklearn.manifold import TSNE
-from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 import matplotlib.pyplot as plt
 
 from scipy.stats import rankdata
@@ -35,7 +33,6 @@ def main(go_file, cls_embeds_file, rel_embeds_file, epoch):
     embeds_list = cls_df['embeddings'].values
     classes = {k: v for k, v in enumerate(cls_df['classes'])}
     rembeds_list = rel_df['embeddings'].values
-    relations = {k: v for k, v in enumerate(rel_df['relations'])}
     size = len(embeds_list[0])
     embeds = np.zeros((nb_classes, size), dtype=np.float32)
     for i, emb in enumerate(embeds_list):
@@ -56,18 +53,12 @@ def main(go_file, cls_embeds_file, rel_embeds_file, epoch):
 
 def plot_embeddings(left,right, classes, epoch):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    # if embeds.shape[1] > 2:
-    #     embeds = TSNE().fit_transform(embeds)
-
     fig, ax =  plt.subplots()
-   # plt.axis('equal')
     ax.set_xlim(-3, 3)
     ax.set_ylim(-3, 3)
     for i in range(left.shape[0]):
         if classes[i]=='C' or classes[i]=='owl:Nothing'or classes[i]=='owl:Thing':
             continue
-        # if classes[i].startswith('owl:'):
-        #     continue
         x, y = left[i, 0], left[i, 1]
         width= right[i, 0]-x
         height = right[i, 1]-y
@@ -77,16 +68,10 @@ def plot_embeddings(left,right, classes, epoch):
         ax.annotate(classes[i], xy=(x+width/2, y+height/2), fontsize=9, ha="center", color=colors[i % len(colors)])
     # ax.legend()
     ax.grid(True)
-    # filename = 'embeds.svg'
-    # if epoch:
+
     filename = 'graph/embeds_'+str(epoch)+'.svg'
-  #  plt.axis('off')
     plt.savefig(filename)
-    # plt.plot([0.01,0.01],[0.01,0.01])
-    # plt.show()
 
 
 if __name__ == '__main__':
    main()
-   # plt.plot([0.01, 0.01], [0.01, 0.01],'*')
-   # plt.savefig('embeds.pdf')
