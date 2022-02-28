@@ -12,7 +12,7 @@ class ELBallModel(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, classNum, relationNum, embedding_dim, margin=0):
+    def __init__(self, device, classNum, relationNum, embedding_dim,batch , margin=0):
         super(ELBallModel, self).__init__()
         self.margin = margin
         self.classNum = classNum
@@ -20,6 +20,7 @@ class ELBallModel(nn.Module):
         self.device = device
         self.reg_norm=1
         self.inf=5
+        self.batch = batch
 
         self.classEmbeddingDict = nn.Embedding(classNum, embedding_dim+1)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -171,9 +172,8 @@ class ELBallModel(nn.Module):
 
 
     def forward(self, input):
-        batch = 512
-        #print(input['disjoint'])
-        # nf1
+        batch = self.batch
+
 
         rand_index = np.random.choice(len(input['nf1']), size=batch)
        # print(len(input['nf1']))
@@ -208,26 +208,11 @@ class ELBallModel(nn.Module):
         disJointData = disJointData.to(self.device)
         disJointLoss = self.disJointLoss(disJointData)
 
-        # top_loss
-        rand_index = np.random.choice(len(input['top']), size=batch)
-        topData = input['top'][rand_index]
-        topData = topData.to(self.device)
-        topLoss = self.top_loss(topData)
+        # negLoss
+        rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
+        negData = input['nf3_neg'][rand_index]
+        negData = negData.to(self.device)
+        negLoss = self.neg_loss(negData)
 
-        # # negLoss
-        # rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
-        # negData = input['nf3_neg'][rand_index]
-        # negData = negData.to(self.device)
-        # negLoss = self.neg_loss(negData)
-
-        # print(loss1,loss2, loss3, loss4, disJointLoss,
-        #      negLoss)
-        #  print( loss1,loss2,disJointLoss)
-      #  print(negLoss.sum().item()/batch)
-
-        totalLoss =  loss1+loss2#+disJointLoss+loss4+loss3 #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
-
-        # print(torch.sum(totalLoss*totalLoss))
-        # print(torch.sqrt(torch.sum(totalLoss*totalLoss)))
-        #print(totalLoss)
-        return torch.sum(totalLoss*totalLoss)/batch
+        totalLoss =  [loss1,loss2,disJointLoss,loss4,loss3,negLoss ]
+        return totalLoss

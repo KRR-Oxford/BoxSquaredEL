@@ -5,15 +5,7 @@ import numpy
 import numpy as np
 import pandas as pd
 import logging
-import math
-import os
-from collections import deque
 
-import torch
-
-from utils.utils import Ontology, FUNC_DICT
-
-from sklearn.manifold import TSNE
 from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
@@ -25,19 +17,19 @@ epoch = '6000'
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/9606.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/9606.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/9606.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/classEmbedPlot.pkl',
+    '--cls-embeds-file', '-cef', default='data/classPPIEmbed.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationHuEmbedPlot.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationPPIEmbed.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -51,8 +43,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     reg_norm = 1
     org = 'human'
 
-    cls_df_tail = pd.read_pickle('data/classHuEmbedPlot.pkl')
-    cls_df_head = pd.read_pickle('data/classHuEmbedPlot.pkl')
+    cls_df_tail = pd.read_pickle(cls_embeds_file)
+    cls_df_head = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df_head)
     nb_relations = len(rel_df)
@@ -107,14 +99,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     train_data = load_data(train_data_file, classes, relations)
     valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
-    count = 0
     for c, r, d in train_data:
-        count+=1
         c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
         trlabels[r][c, d] = 10000
-    print(trlabels)
 
 
     test_data = load_data(test_data_file, classes, relations)
@@ -134,7 +123,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     eval_data = test_data
     n = len(eval_data)
 
-
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
@@ -144,20 +132,16 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
                 preds[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.float32)
             labels[r][c, d] = 1
 
-            # 蛋白质左下（原中心）
-
             ec = prot_embeds_head[c, :].reshape(1, -1)
 
-            # 蛋白质右上（原半径）
+
             rc = prot_rs_head[c, :].reshape(1, -1)
 
-            # relation左下
-            er = rembeds[r, :-1].reshape(1, -1)
-          #  er = rembeds[r]
+            er = rembeds[r, :].reshape(1, -1)
+
             ec += er
 
-
-            prot_embedsNew = prot_embeds_tail+er
+            prot_embedsNew = prot_embeds_tail + er
 
             prot_rsNew = prot_rs_tail
             rr = np.abs(rc)
@@ -166,11 +150,9 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             cen1 = ec
             cen2 = prot_embedsNew
             euc = np.abs(cen1 - cen2)
-            res = np.reshape((np.linalg.norm(np.maximum(euc -rd+rr-np.abs(rembeds[r, -1]).reshape(-1,1),np.zeros(euc.shape)),axis=1 ) ), -1)  # + rightLessLeftLoss
-            # res = np.reshape((np.linalg.norm(
-            #     np.maximum(euc - rd + rr , np.zeros(euc.shape)), axis=1)),
-            #                  -1)  # + rightLessLeftLoss
-
+            res = np.reshape((np.linalg.norm(
+                np.maximum(euc - rd + rr - np.abs(rembeds[r, -1]).reshape(-1, 1), np.zeros(euc.shape)), axis=1)),
+                             -1)  # + rightLessLeftLoss
             preds[r][c, :] = res
             index = rankdata(res, method='average')
 
@@ -191,9 +173,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             ranks[rank] += 1
 
             # Filtered rank
-           # print(res.shape,trlabels[r][c, :].shape)
-            rank1 = rank
-           # print(rank,1)
             index = rankdata((res * trlabels[r][c, :]), method='average')
             rank = index[d]
             if rank == 1:
@@ -203,7 +182,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if rank <= 100:
                 ftop100 += 1
             fmean_rank += rank
-
 
             if rank not in franks:
                 franks[rank] = 0
@@ -308,9 +286,3 @@ def sim(ec, rc, ed, rd):
 
 if __name__ == '__main__':
     main()
-
-# human 25 -0.1 1 0.10 0.56 227.52 0.96
-# human 25 -0.1 1 0.25 0.75 180.71 0.97
-
-# human 25 -0.1 1 0.10 0.56 215.15 0.96
-# human 25 -0.1 1 0.25 0.75 168.49 0.97
