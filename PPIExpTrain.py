@@ -6,12 +6,12 @@ from model.ELBoxlModel import ELBoxModel
 from utils.ppi_data_loader import load_data, load_valid_data
 import logging
 import torch
-
-logging.basicConfig(level=logging.INFO)
 import pandas as pd
 import numpy as np
 from tqdm import trange
 import wandb
+
+logging.basicConfig(level=logging.INFO)
 
 
 @ck.command()
@@ -61,7 +61,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          learning_rate, params_array_index, loss_history_file):
     wandb.init(project="el2box", entity="krr")
 
-    device = torch.device('cuda:0')
+    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
 
     # training procedure
     train_data, classes, relations = load_data(data_file)
@@ -78,7 +78,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train(model, train_data, optimizer, classes, relations)
     model.eval()
 
-    model = model.to('cuda:0')
+    model = model.to(device)
 
     cls_file = out_classes_file
     df = pd.DataFrame(
