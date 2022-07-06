@@ -5,44 +5,15 @@ import torch
 np.random.seed(12)
 
 
-class RelationModel(nn.Module):
-    def __init__(self, embedding_dim):
-        self.embedding_dim = embedding_dim
-        super(RelationModel, self).__init__()
-
-        self.mlp = nn.Sequential(
-            nn.Linear(2 * embedding_dim, embedding_dim),
-            nn.LayerNorm(embedding_dim),
-            nn.Tanh(),
-            nn.Linear(embedding_dim, embedding_dim),
-
-            # nn.LayerNorm(16*embedding_dim),
-            #  nn.Tanh(),
-            #  nn.Linear(16 * embedding_dim,  8*embedding_dim),
-            # nn.LayerNorm(embedding_dim * 8),
-            #  nn.Tanh(),
-            #  nn.Linear(8 * embedding_dim, 2 * embedding_dim),
-            # nn.LayerNorm(embedding_dim * 2),
-            #  nn.Tanh(),
-            #  nn.Linear(2*embedding_dim,  embedding_dim),
-            # nn.LayerNorm(embedding_dim),
-            #  nn.Tanh(),
-        )
-
-    def forward(self, input):
-        # input[:,:50]
-        return input[:, :50]
-
-
 class ELBoxModel(nn.Module):
-    '''
+    """
 
     Args:
         classNum: number of classes
         relationNum: number of relations
         embedding_dim: the dimension of the embedding(both class and relatio)
         margin: the distance that two box apart
-    '''
+    """
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0):
         super(ELBoxModel, self).__init__()
@@ -67,15 +38,6 @@ class ELBoxModel(nn.Module):
             self.relationEmbeddingDict.weight.data, axis=1).reshape(-1, 1)
 
         self.embedding_dim = embedding_dim
-        self.relationModel = RelationModel(self.embedding_dim)
-        self.tailRelationModel = self.relationModel
-        for m in self.relationModel.modules():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                nn.init.kaiming_normal_(m.weight)
-
-        for m in self.tailRelationModel.modules():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                nn.init.kaiming_normal_(m.weight)
 
     # cClass isSubSetof dClass
 
@@ -86,13 +48,8 @@ class ELBoxModel(nn.Module):
         c1 = c[:, :self.embedding_dim]
         d1 = d[:, :self.embedding_dim]
 
-        c2 = torch.abs(c[:, self.embedding_dim:])
-        d2 = torch.abs(d[:, self.embedding_dim:])
-
-        # box
-
-        cr = torch.abs(c2)
-        dr = torch.abs(d2)
+        cr = torch.abs(c[:, self.embedding_dim:])
+        dr = torch.abs(d[:, self.embedding_dim:])
 
         margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
         zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
@@ -167,35 +124,21 @@ class ELBoxModel(nn.Module):
         r = self.relationEmbeddingDict(input[:, 1])
         d = self.classEmbeddingDict(input[:, 2])
 
-        c1_o = c[:, :self.embedding_dim]
-        c2_o = c[:, self.embedding_dim:]
+        c_center = c[:, :self.embedding_dim]
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
-        d1_o = d[:, :self.embedding_dim]
-        d2_o = d[:, self.embedding_dim:]
+        d_center = d[:, :self.embedding_dim]
+        d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        c1_input = torch.cat((c1_o, r), dim=1)
-        c2_input = torch.cat((c2_o, r), dim=1)
+        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
+        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
 
-        d1_input = torch.cat((d1_o, r), dim=1)
-        d2_input = torch.cat((d2_o, r), dim=1)
-
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
-
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
-
-        cr = torch.abs(c2)
-        dr = torch.abs(d2)
-
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
-        cen1 = c1 + r
-        cen2 = d1
+        cen1 = c_center + r
+        cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + c_offset - d_offset + margin, zeros), axis=1),
+                            [-1, 1])
 
         return dst
 
@@ -204,75 +147,45 @@ class ELBoxModel(nn.Module):
         r = self.relationEmbeddingDict(input[:, 1])
         d = self.classEmbeddingDict(input[:, 2])
 
-        c1_o = c[:, :self.embedding_dim]
-        c2_o = c[:, self.embedding_dim:]
+        c_center = c[:, :self.embedding_dim]
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
-        d1_o = d[:, :self.embedding_dim]
-        d2_o = d[:, self.embedding_dim:]
+        d_center = d[:, :self.embedding_dim]
+        d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        c1_input = torch.cat((c1_o, r), dim=1)
-        c2_input = torch.cat((c2_o, r), dim=1)
+        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
+        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
 
-        d1_input = torch.cat((d1_o, r), dim=1)
-        d2_input = torch.cat((d2_o, r), dim=1)
-
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
-
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
-
-        cr = torch.abs(c2)
-        dr = torch.abs(d2)
-
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
-        cen1 = c1 + r
-        cen2 = d1
+        cen1 = c_center + r
+        cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr - margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - c_offset - d_offset - margin, zeros), axis=1),
+                            [-1, 1])
 
         return dst
 
     # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
         c = self.classEmbeddingDict(input[:, 1])
-
         r = self.relationEmbeddingDict(input[:, 0])
-
         d = self.classEmbeddingDict(input[:, 2])
 
-        c1_o = c[:, :self.embedding_dim]
-        c2_o = c[:, self.embedding_dim:]
+        c_center = c[:, :self.embedding_dim]
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
-        d1_o = d[:, :self.embedding_dim]
-        d2_o = d[:, self.embedding_dim:]
+        d_center = d[:, :self.embedding_dim]
+        d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        c1_input = torch.cat((c1_o, r), dim=1)
-        c2_input = torch.cat((c2_o, r), dim=1)
+        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
+        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
 
-        d1_input = torch.cat((d1_o, r), dim=1)
-        d2_input = torch.cat((d2_o, r), dim=1)
-
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
-
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
-
-        cr = torch.abs(c2)
-        dr = torch.abs(d2)
-
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
-        cen1 = c1 - r
-        cen2 = d1
+        cen1 = c_center - r
+        cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - c_offset - d_offset + margin, zeros), axis=1),
+                            [-1, 1])
 
         return dst
 

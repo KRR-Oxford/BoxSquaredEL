@@ -3,7 +3,7 @@ import click as ck
 import numpy
 import torch.optim as optim
 from model.ELBoxlModel import ELBoxModel
-from utils.elDataLoader import load_data, load_valid_data
+from utils.ppi_data_loader import load_data, load_valid_data
 import logging
 import torch
 
@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 import pandas as pd
 import numpy as np
 from tqdm import trange
+import wandb
 
 
 @ck.command()
@@ -58,6 +59,8 @@ from tqdm import trange
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
+    wandb.init(project="el2box", entity="krr")
+
     device = torch.device('cuda:0')
 
     # training procedure
@@ -93,10 +96,12 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
 def train(model, data, optimizer, aclasses, relations, num_epochs=7000):
     model.train()
+    wandb.watch(model)
 
-    for epoch in range(num_epochs):
+    for epoch in trange(num_epochs):
         re = model(data)
         loss = sum(re)
+        wandb.log({'loss': loss})
         if epoch % 1000 == 0:
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         optimizer.zero_grad()

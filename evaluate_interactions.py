@@ -5,6 +5,7 @@ import numpy
 import numpy as np
 import pandas as pd
 import logging
+from tqdm import tqdm
 
 from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 import matplotlib.pyplot as plt
@@ -41,15 +42,17 @@ epoch = '6000'
     help='Params array index')
 def main(go_file, train_data_file, valid_data_file, test_data_file,
          cls_embeds_file, rel_embeds_file, margin, params_array_index):
+    print('Evaluating')
     embedding_size = 50
     reg_norm = 1
-    org = 'human'
+    org = 'yeast'
 
     cls_df_tail = pd.read_pickle(cls_embeds_file)
     cls_df_head = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df_head)
     nb_relations = len(rel_df)
+    print(f'#Classes: {nb_classes}, #Relations: {nb_relations}')
 
     embeds_list_tail = cls_df_tail['embeddings'].values
     classes = {v: k for k, v in enumerate(cls_df_tail['classes'])}
@@ -97,6 +100,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
 
+    print('Loading data')
     train_data = load_data(train_data_file, classes, relations)
     valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
@@ -123,76 +127,72 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     eval_data = test_data
     n = len(eval_data)
 
-    with ck.progressbar(eval_data) as prog_data:
-        for c, r, d in prog_data:
-            c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
-            if r not in labels:
-                labels[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
-            if r not in preds:
-                preds[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.float32)
-            labels[r][c, d] = 1
+    for c, r, d in tqdm(eval_data, total=len(eval_data)):
+        c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
+        if r not in labels:
+            labels[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
+        if r not in preds:
+            preds[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.float32)
+        labels[r][c, d] = 1
 
-            ec = prot_embeds_head[c, :].reshape(1, -1)
+        ec = prot_embeds_head[c, :].reshape(1, -1)
+        rc = prot_rs_head[c, :].reshape(1, -1)
+        er = rembeds[r, :].reshape(1, -1)
+        ec += er
 
-            rc = prot_rs_head[c, :].reshape(1, -1)
+        prot_embedsNew = prot_embeds_tail + er
 
-            er = rembeds[r, :].reshape(1, -1)
+        prot_rsNew = prot_rs_tail
+        rr = np.abs(rc)
 
-            ec += er
+        rd = np.abs(prot_rsNew)
+        cen1 = ec
+        cen2 = prot_embedsNew
+        euc = np.abs(cen1 - cen2)
+        res = np.reshape((np.linalg.norm(
+            np.maximum(euc - rd + rr - np.abs(rembeds[r, -1]).reshape(-1, 1), np.zeros(euc.shape)), axis=1)),
+            -1)  # + rightLessLeftLoss
+        preds[r][c, :] = res
+        index = rankdata(res, method='average')
 
-            prot_embedsNew = prot_embeds_tail + er
+        rank = index[d]
 
-            prot_rsNew = prot_rs_tail
-            rr = np.abs(rc)
+        # print(rank,res[d])
 
-            rd = np.abs(prot_rsNew)
-            cen1 = ec
-            cen2 = prot_embedsNew
-            euc = np.abs(cen1 - cen2)
-            res = np.reshape((np.linalg.norm(
-                np.maximum(euc - rd + rr - np.abs(rembeds[r, -1]).reshape(-1, 1), np.zeros(euc.shape)), axis=1)),
-                -1)  # + rightLessLeftLoss
-            preds[r][c, :] = res
-            index = rankdata(res, method='average')
+        # print(1 / 0)
+        if rank == 1:
+            top1 += 1
+        if rank <= 10:
+            top10 += 1
+        if rank <= 100:
+            top100 += 1
+        mean_rank += rank
+        if rank not in ranks:
+            ranks[rank] = 0
+        ranks[rank] += 1
 
-            rank = index[d]
+        # Filtered rank
+        index = rankdata((res * trlabels[r][c, :]), method='average')
+        rank = index[d]
+        if rank == 1:
+            ftop1 += 1
+        if rank <= 10:
+            ftop10 += 1
+        if rank <= 100:
+            ftop100 += 1
+        fmean_rank += rank
 
-            # print(rank,res[d])
-
-            # print(1 / 0)
-            if rank == 1:
-                top1 += 1
-            if rank <= 10:
-                top10 += 1
-            if rank <= 100:
-                top100 += 1
-            mean_rank += rank
-            if rank not in ranks:
-                ranks[rank] = 0
-            ranks[rank] += 1
-
-            # Filtered rank
-            index = rankdata((res * trlabels[r][c, :]), method='average')
-            rank = index[d]
-            if rank == 1:
-                ftop1 += 1
-            if rank <= 10:
-                ftop10 += 1
-            if rank <= 100:
-                ftop100 += 1
-            fmean_rank += rank
-
-            if rank not in franks:
-                franks[rank] = 0
-            franks[rank] += 1
-        top1 /= n
-        top10 /= n
-        top100 /= n
-        mean_rank /= n
-        ftop1 /= n
-        ftop10 /= n
-        ftop100 /= n
-        fmean_rank /= n
+        if rank not in franks:
+            franks[rank] = 0
+        franks[rank] += 1
+    top1 /= n
+    top10 /= n
+    top100 /= n
+    mean_rank /= n
+    ftop1 /= n
+    ftop10 /= n
+    ftop100 /= n
+    fmean_rank /= n
 
     rank_auc = compute_rank_roc(ranks, len(proteins_head))
     frank_auc = compute_rank_roc(franks, len(proteins_head))

@@ -3,7 +3,7 @@ import click as ck
 import numpy
 import torch.optim as optim
 from model.ELBoxlModel import  ELBoxModel
-from utils.elDataLoader import load_data2, load_valid_data
+from utils.ppi_data_loader import load_data2, load_valid_data
 import logging
 import torch
 logging.basicConfig(level=logging.INFO)

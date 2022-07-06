@@ -5,20 +5,16 @@
     <option name="openedFilesInfos">
       <list>
         <OpenedFileInfo>
-          <option name="caretOffset" value="312" />
-          <option name="fileUrl" value="file://$PROJECT_DIR$/PPIExpTrain.py" />
-        </OpenedFileInfo>
-        <OpenedFileInfo>
-          <option name="caretOffset" value="412" />
+          <option name="caretOffset" value="6274" />
           <option name="fileUrl" value="file://$PROJECT_DIR$/evaluate_interactions.py" />
         </OpenedFileInfo>
         <OpenedFileInfo>
-          <option name="caretOffset" value="146" />
-          <option name="fileUrl" value="file://$PROJECT_DIR$/model/ELBoxlModel.py" />
+          <option name="caretOffset" value="3469" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/PPIExpTrain.py" />
         </OpenedFileInfo>
         <OpenedFileInfo>
-          <option name="caretOffset" value="412" />
-          <option name="fileUrl" value="file://$PROJECT_DIR$/utils/elDataLoader.py" />
+          <option name="caretOffset" value="0" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/.gitignore" />
         </OpenedFileInfo>
       </list>
     </option>
