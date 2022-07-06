@@ -1,24 +1,16 @@
-#!/usr/bin/env python
-
 import click as ck
-import numpy
 import numpy as np
 import pandas as pd
 import logging
 from tqdm import tqdm
 
-from sklearn.metrics import roc_curve, auc, matthews_corrcoef
-import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
 from scipy.stats import rankdata
 
 logging.basicConfig(level=logging.INFO)
-epoch = '6000'
 
 
 @ck.command()
-@ck.option(
-    '--go-file', '-gf', default='data/go.obo',
-    help='Gene Ontology file in OBO Format')
 @ck.option(
     '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
     help='')
@@ -37,78 +29,52 @@ epoch = '6000'
 @ck.option(
     '--margin', '-m', default=-0.1,
     help='Loss margin')
-@ck.option(
-    '--params-array-index', '-pai', default=-1,
-    help='Params array index')
-def main(go_file, train_data_file, valid_data_file, test_data_file,
-         cls_embeds_file, rel_embeds_file, margin, params_array_index):
+def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_embeds_file, margin):
     print('Evaluating')
     embedding_size = 50
     reg_norm = 1
     org = 'yeast'
 
-    cls_df_tail = pd.read_pickle(cls_embeds_file)
-    cls_df_head = pd.read_pickle(cls_embeds_file)
+    cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
-    nb_classes = len(cls_df_head)
+    nb_classes = len(cls_df)
     nb_relations = len(rel_df)
     print(f'#Classes: {nb_classes}, #Relations: {nb_relations}')
 
-    embeds_list_tail = cls_df_tail['embeddings'].values
-    classes = {v: k for k, v in enumerate(cls_df_tail['classes'])}
-    rembeds_list = rel_df['embeddings'].values
+    embeds_list = cls_df['embeddings'].values
+    classes = {v: k for k, v in enumerate(cls_df['classes'])}
+    r_embeds_list = rel_df['embeddings'].values
     relations = {v: k for k, v in enumerate(rel_df['relations'])}
-    size = len(embeds_list_tail[0])
-    embeds_tail = np.zeros((nb_classes, size), dtype=np.float32)
-    for i, emb in enumerate(embeds_list_tail):
-        embeds_tail[i, :] = emb
-    proteins_tail = {}
+    size = len(embeds_list[0])
+    embeds = np.zeros((nb_classes, size), dtype=np.float32)
+    for i, emb in enumerate(embeds_list):
+        embeds[i, :] = emb
+    proteins = {}
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
-            proteins_tail[k] = v
-    rs = embeds_tail[:, embedding_size:]
-    embeds_tail = embeds_tail[:, :embedding_size]
-    prot_index_tail = list(proteins_tail.values())
-    prot_rs_tail = rs[prot_index_tail, :]
-    prot_embeds_tail = embeds_tail[prot_index_tail, :]
-    prot_dict_tail = {v: k for k, v in enumerate(prot_index_tail)}
+            proteins[k] = v
+    offsets = embeds[:, embedding_size:]
+    embeds = embeds[:, :embedding_size]
+    prot_index = list(proteins.values())
+    prot_offsets = offsets[prot_index, :]
+    prot_embeds = embeds[prot_index, :]
+    prot_dict = {v: k for k, v in enumerate(prot_index)}
 
-    # head
-    embeds_list_head = cls_df_head['embeddings'].values
-    classes = {v: k for k, v in enumerate(cls_df_head['classes'])}
-    rembeds_list = rel_df['embeddings'].values
-    relations = {v: k for k, v in enumerate(rel_df['relations'])}
-    size = len(embeds_list_head[0])
-    embeds_head = np.zeros((nb_classes, size), dtype=np.float32)
-    for i, emb in enumerate(embeds_list_head):
-        embeds_head[i, :] = emb
-    proteins_head = {}
-    for k, v in classes.items():
-        if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
-            proteins_head[k] = v
-    rs = embeds_head[:, embedding_size:]
-    embeds_head = embeds_head[:, :embedding_size]
-    prot_index_head = list(proteins_head.values())
-    prot_rs_head = rs[prot_index_head, :]
-    prot_embeds_head = embeds_head[prot_index_head, :]
-    prot_dict_head = {v: k for k, v in enumerate(prot_index_head)}
-    #####################################################################
-
-    # relation
-    rsize = len(rembeds_list[0])
-    rembeds = np.zeros((nb_relations, rsize), dtype=np.float32)
-    for i, emb in enumerate(rembeds_list):
-        rembeds[i, :] = emb
+    # relations
+    r_size = len(r_embeds_list[0])
+    r_embeds = np.zeros((nb_relations, r_size), dtype=np.float32)
+    for i, emb in enumerate(r_embeds_list):
+        r_embeds[i, :] = emb
 
     print('Loading data')
     train_data = load_data(train_data_file, classes, relations)
-    valid_data = load_data(valid_data_file, classes, relations)
-    trlabels = {}
+    # valid_data = load_data(valid_data_file, classes, relations)
+    train_labels = {}
     for c, r, d in train_data:
-        c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
-        if r not in trlabels:
-            trlabels[r] = np.ones((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
-        trlabels[r][c, d] = 10000
+        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+        if r not in train_labels:
+            train_labels[r] = np.ones((len(prot_dict), len(prot_dict)), dtype=np.float32)
+        train_labels[r][c, d] = np.inf
 
     test_data = load_data(test_data_file, classes, relations)
 
@@ -120,39 +86,24 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     ftop10 = 0
     ftop100 = 0
     fmean_rank = 0
-    labels = {}
-    preds = {}
     ranks = {}
     franks = {}
     eval_data = test_data
     n = len(eval_data)
 
     for c, r, d in tqdm(eval_data, total=len(eval_data)):
-        c, r, d = prot_dict_head[classes[c]], relations[r], prot_dict_tail[classes[d]]
-        if r not in labels:
-            labels[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
-        if r not in preds:
-            preds[r] = np.zeros((len(prot_dict_head), len(prot_dict_head)), dtype=np.float32)
-        labels[r][c, d] = 1
+        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
 
-        ec = prot_embeds_head[c, :].reshape(1, -1)
-        rc = prot_rs_head[c, :].reshape(1, -1)
-        er = rembeds[r, :].reshape(1, -1)
-        ec += er
+        embedding = prot_embeds[c, :].reshape(1, -1)
+        offset = np.abs(prot_offsets[c, :].reshape(1, -1))
+        relation = r_embeds[r, :].reshape(1, -1)
 
-        prot_embedsNew = prot_embeds_tail + er
+        prot_embeds_new = prot_embeds
+        prot_offsets_new = np.abs(prot_offsets)
 
-        prot_rsNew = prot_rs_tail
-        rr = np.abs(rc)
-
-        rd = np.abs(prot_rsNew)
-        cen1 = ec
-        cen2 = prot_embedsNew
-        euc = np.abs(cen1 - cen2)
-        res = np.reshape((np.linalg.norm(
-            np.maximum(euc - rd + rr - np.abs(rembeds[r, -1]).reshape(-1, 1), np.zeros(euc.shape)), axis=1)),
-            -1)  # + rightLessLeftLoss
-        preds[r][c, :] = res
+        euc = np.abs(embedding + relation - prot_embeds_new)
+        maximum = np.maximum(euc - prot_offsets_new + offset, np.zeros(euc.shape))
+        res = np.reshape((np.linalg.norm(maximum, axis=1)), -1)
         index = rankdata(res, method='average')
 
         rank = index[d]
@@ -172,7 +123,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         ranks[rank] += 1
 
         # Filtered rank
-        index = rankdata((res * trlabels[r][c, :]), method='average')
+        index = rankdata((res * train_labels[r][c, :]), method='average')
         rank = index[d]
         if rank == 1:
             ftop1 += 1
@@ -194,8 +145,8 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     ftop100 /= n
     fmean_rank /= n
 
-    rank_auc = compute_rank_roc(ranks, len(proteins_head))
-    frank_auc = compute_rank_roc(franks, len(proteins_head))
+    rank_auc = compute_rank_roc(ranks, len(proteins))
+    frank_auc = compute_rank_roc(franks, len(proteins))
 
     print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
     print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
