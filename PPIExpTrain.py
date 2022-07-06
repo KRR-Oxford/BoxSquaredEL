@@ -2,17 +2,20 @@
 import click as ck
 import numpy
 import torch.optim as optim
-from model.ELBoxlModel import  ELBoxModel
+from model.ELBoxlModel import ELBoxModel
 from utils.elDataLoader import load_data, load_valid_data
 import logging
 import torch
+
 logging.basicConfig(level=logging.INFO)
-from utils.plot_embeddings import plot_embeddings
 import pandas as pd
-import  numpy as np
+import numpy as np
+from tqdm import trange
+
+
 @ck.command()
-#family_normalized.owl
-#yeast-classes-normalized.owl
+# family_normalized.owl
+# yeast-classes-normalized.owl
 @ck.option(
     '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
@@ -52,19 +55,16 @@ import  numpy as np
 @ck.option(
     '--loss-history-file', '-lhf', default='data/loss_history.csv',
     help='Pandas pkl file with loss history')
-
-
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-
     device = torch.device('cuda:0')
 
-    #training procedure
+    # training procedure
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBoxModel(device,classes, len(relations), embedding_dim=embedding_dim, batch = batch_size,margin1=-0.05)
+    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin1=-0.05)
 
     #
     # checkpoint = torch.load('./netPlot.pkl')
@@ -72,7 +72,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     model = model.to(device)
-    train(model,train_data, optimizer,classes, relations)
+    train(model, train_data, optimizer, classes, relations)
     model.eval()
 
     model = model.to('cuda:0')
@@ -83,14 +83,13 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
     df.to_pickle(cls_file)
 
-
-
     rel_file = out_relations_file
     df = pd.DataFrame(
         {'relations': list(relations.keys()),
          'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
 
     df.to_pickle(rel_file)
+
 
 def train(model, data, optimizer, aclasses, relations, num_epochs=7000):
     model.train()
@@ -99,10 +98,11 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=7000):
         re = model(data)
         loss = sum(re)
         if epoch % 1000 == 0:
-            print('epoch:',epoch,'loss:',round(loss.item(),3))
+            print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
 
 if __name__ == '__main__':
     main()

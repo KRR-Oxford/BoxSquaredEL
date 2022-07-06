@@ -12,6 +12,8 @@ from scipy.stats import rankdata
 
 logging.basicConfig(level=logging.INFO)
 epoch = '6000'
+
+
 @ck.command()
 @ck.option(
     '--go-file', '-gf', default='data/go.obo',
@@ -68,7 +70,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     prot_embeds_tail = embeds_tail[prot_index_tail, :]
     prot_dict_tail = {v: k for k, v in enumerate(prot_index_tail)}
 
-    #head
+    # head
     embeds_list_head = cls_df_head['embeddings'].values
     classes = {v: k for k, v in enumerate(cls_df_head['classes'])}
     rembeds_list = rel_df['embeddings'].values
@@ -89,7 +91,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     prot_dict_head = {v: k for k, v in enumerate(prot_index_head)}
     #####################################################################
 
-
     # relation
     rsize = len(rembeds_list[0])
     rembeds = np.zeros((nb_relations, rsize), dtype=np.float32)
@@ -104,7 +105,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_dict_head), len(prot_dict_head)), dtype=np.int32)
         trlabels[r][c, d] = 10000
-
 
     test_data = load_data(test_data_file, classes, relations)
 
@@ -134,7 +134,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             ec = prot_embeds_head[c, :].reshape(1, -1)
 
-
             rc = prot_rs_head[c, :].reshape(1, -1)
 
             er = rembeds[r, :].reshape(1, -1)
@@ -152,7 +151,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             euc = np.abs(cen1 - cen2)
             res = np.reshape((np.linalg.norm(
                 np.maximum(euc - rd + rr - np.abs(rembeds[r, -1]).reshape(-1, 1), np.zeros(euc.shape)), axis=1)),
-                             -1)  # + rightLessLeftLoss
+                -1)  # + rightLessLeftLoss
             preds[r][c, :] = res
             index = rankdata(res, method='average')
 

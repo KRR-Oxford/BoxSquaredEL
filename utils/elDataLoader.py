@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-import  random
+import random
+
 np.random.seed(seed=100)
 
 '''load the normalized data(nf1, nf2, nf3, nf4)
@@ -16,7 +17,6 @@ Return:
 
 
 def load_data(filename):
-
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -124,13 +124,12 @@ def load_data(filename):
 
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
 
-
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
     data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)
     data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
     data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
-    data['top'] = torch.tensor([classes['owl:Thing']],  dtype=torch.int32)
+    data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
 
     for key, val in data.items():
@@ -140,7 +139,6 @@ def load_data(filename):
         data[key] = val[index]
 
     return data, classes, relations
-
 
     np.random.seed(seed=100)
 
@@ -155,8 +153,8 @@ def load_data(filename):
         relations: dictonary, key is relation name, value is according index
     '''
 
-def load_data2(filename):
 
+def load_data2(filename):
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -265,9 +263,9 @@ def load_data2(filename):
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
 
     for i in data['nf2'][10000:]:
-        a,b,c = i
-        print(str(a)+" "+str(b)+" "+str(c))
-        data['nf1'].append((c,a))
+        a, b, c = i
+        print(str(a) + " " + str(b) + " " + str(c))
+        data['nf1'].append((c, a))
         data['nf1'].append((c, b))
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
@@ -285,6 +283,7 @@ def load_data2(filename):
 
     return data, classes, relations
 
+
 '''load valid data
 
 Args:
@@ -295,6 +294,7 @@ Args:
 Return value:
     data: classes[id1], relations[rel], classes[id2]
 '''
+
 
 def load_valid_data(valid_data_file, classes, relations):
     data = []
