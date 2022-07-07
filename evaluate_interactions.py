@@ -13,16 +13,19 @@ from utils.utils import get_device
 
 logging.basicConfig(level=logging.INFO)
 
+dataset = 'yeast'
+dataset_id = 4932 if dataset == 'yeast' else 9606
+
 
 @ck.command()
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default=f'data/data-train/{dataset_id}.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default=f'data/data-valid/{dataset_id}.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default=f'data/data-test/{dataset_id}.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/classPPIEmbed.pkl',
@@ -37,7 +40,6 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     print('Evaluating')
     embedding_size = 50
     reg_norm = 1
-    org = 'yeast'
 
     device = get_device()
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -143,8 +145,8 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     rank_auc = compute_rank_roc(ranks_dict, len(proteins))
     frank_auc = compute_rank_roc(franks_dict, len(proteins))
 
-    print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
-    print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
+    print(f'{dataset} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
+    print(f'{dataset} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
 
 
 def compute_roc(labels, preds):
