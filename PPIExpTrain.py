@@ -11,6 +11,8 @@ import numpy as np
 from tqdm import trange
 import wandb
 
+from utils.utils import get_device
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -61,8 +63,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          learning_rate, params_array_index, loss_history_file):
     wandb.init(project="el2box", entity="krr")
 
-    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
-    print(f'Using device: {device}')
+    device = get_device()
 
     # training procedure
     train_data, classes, relations = load_data(data_file)

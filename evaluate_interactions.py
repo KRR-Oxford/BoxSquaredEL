@@ -9,6 +9,7 @@ import torch
 
 from sklearn.metrics import roc_curve, auc
 import math
+from utils.utils import get_device
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,10 +39,7 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     reg_norm = 1
     org = 'yeast'
 
-    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
-    device_name = torch.cuda.get_device_name(device) if torch.cuda.is_available() else 'cpu'
-    print(f'Using device: {device_name}')
-
+    device = get_device()
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df)

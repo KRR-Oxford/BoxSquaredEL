@@ -13,15 +13,10 @@ FUNC_DICT = {
     'mf': MOLECULAR_FUNCTION,
     'bp': BIOLOGICAL_PROCESS}
 
-EXP_CODES = set([
-    'EXP', 'IDA', 'IPI', 'IMP', 'IGI', 'IEP', 'TAS', 'IC',
-    'HTP', 'HDA', 'HMP', 'HGI', 'HEP'])
-CAFA_TARGETS = set([
-    '10090', '223283', '273057', '559292', '85962',
-    '10116',  '224308', '284812', '7227', '9606',
-    '160488', '237561', '321314', '7955', '99287',
-    '170187', '243232', '3702', '83333', '208963',
-    '243273', '44689', '8355'])
+EXP_CODES = {'EXP', 'IDA', 'IPI', 'IMP', 'IGI', 'IEP', 'TAS', 'IC', 'HTP', 'HDA', 'HMP', 'HGI', 'HEP'}
+CAFA_TARGETS = {'10090', '223283', '273057', '559292', '85962', '10116', '224308', '284812', '7227', '9606', '160488',
+                '237561', '321314', '7955', '99287', '170187', '243232', '3702', '83333', '208963', '243273', '44689',
+                '8355'}
 
 def is_cafa_target(org):
     return org in CAFA_TARGETS
@@ -29,6 +24,11 @@ def is_cafa_target(org):
 def is_exp_code(code):
     return code in EXP_CODES
 
+def get_device():
+    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
+    device_name = torch.cuda.get_device_name(device) if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {device_name}')
+    return device
 
 class Ontology(object):
 
