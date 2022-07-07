@@ -1,11 +1,14 @@
+from collections import Counter
+
 import click as ck
-import numpy as np
 import pandas as pd
 import logging
-from tqdm import tqdm
+from tqdm import trange
+import numpy as np
+import torch
 
 from sklearn.metrics import roc_curve, auc
-from scipy.stats import rankdata
+import math
 
 logging.basicConfig(level=logging.INFO)
 
@@ -35,6 +38,10 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     reg_norm = 1
     org = 'yeast'
 
+    device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
+    device_name = torch.cuda.get_device_name(device) if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {device_name}')
+
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df)
@@ -46,14 +53,14 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     r_embeds_list = rel_df['embeddings'].values
     relations = {v: k for k, v in enumerate(rel_df['relations'])}
     size = len(embeds_list[0])
-    embeds = np.zeros((nb_classes, size), dtype=np.float32)
+    embeds = torch.zeros((nb_classes, size), requires_grad=False).to(device)
     for i, emb in enumerate(embeds_list):
-        embeds[i, :] = emb
+        embeds[i, :] = torch.from_numpy(emb).to(device)
     proteins = {}
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
-    offsets = embeds[:, embedding_size:]
+    offsets = torch.abs(embeds[:, embedding_size:])
     embeds = embeds[:, :embedding_size]
     prot_index = list(proteins.values())
     prot_offsets = offsets[prot_index, :]
@@ -62,9 +69,9 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
 
     # relations
     r_size = len(r_embeds_list[0])
-    r_embeds = np.zeros((nb_relations, r_size), dtype=np.float32)
+    r_embeds = torch.zeros((nb_relations, r_size), requires_grad=False).to(device)
     for i, emb in enumerate(r_embeds_list):
-        r_embeds[i, :] = emb
+        r_embeds[i, :] = torch.from_numpy(emb).to(device)
 
     print('Loading data')
     train_data = load_data(train_data_file, classes, relations)
@@ -73,80 +80,70 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     for c, r, d in train_data:
         c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
         if r not in train_labels:
-            train_labels[r] = np.ones((len(prot_dict), len(prot_dict)), dtype=np.float32)
-        train_labels[r][c, d] = np.inf
+            train_labels[r] = torch.ones((len(prot_dict), len(prot_dict)), requires_grad=False).to(device)
+        train_labels[r][c, d] = torch.inf
 
     test_data = load_data(test_data_file, classes, relations)
 
-    top1 = 0
-    top10 = 0
-    top100 = 0
-    mean_rank = 0
-    ftop1 = 0
-    ftop10 = 0
-    ftop100 = 0
-    fmean_rank = 0
-    ranks = {}
-    franks = {}
+    top1 = 0.
+    top10 = 0.
+    top100 = 0.
+    ftop1 = 0.
+    ftop10 = 0.
+    ftop100 = 0.
+    ranks = torch.Tensor().to(device)
+    franks = torch.Tensor().to(device)
     eval_data = test_data
     n = len(eval_data)
 
-    for c, r, d in tqdm(eval_data, total=len(eval_data)):
-        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+    batch_size = 200
+    num_batches = math.ceil(n / batch_size)
+    eval_data = [(prot_dict[classes[c]], relations[r], prot_dict[classes[d]]) for c, r, d in eval_data]
+    eval_data = torch.tensor(eval_data, requires_grad=False).to(device)
+    r = eval_data[0, 1]
+    assert ((eval_data[:, 1] == r).sum() == n)  # assume we use the same r everywhere
 
-        embedding = prot_embeds[c, :].reshape(1, -1)
-        offset = np.abs(prot_offsets[c, :].reshape(1, -1))
-        relation = r_embeds[r, :].reshape(1, -1)
+    for i in trange(num_batches):
+        start = i * batch_size
+        current_batch_size = min(batch_size, n - start)
+        batch_data = eval_data[start:start + current_batch_size, :]
 
-        prot_embeds_new = prot_embeds
-        prot_offsets_new = np.abs(prot_offsets)
+        batch_translated = prot_embeds[batch_data[:, 0]] + r_embeds[batch_data[:, 1]]
+        batch_offsets = prot_offsets[batch_data[:, 0]]
+        eucs = torch.abs(batch_translated[:, None, :] - torch.tile(prot_embeds, (current_batch_size, 1, 1)))
+        dists = eucs - prot_offsets[None, :, :] + batch_offsets[:, None, :]
+        dists = torch.maximum(dists, torch.zeros(dists.shape, requires_grad=False).to(device))
+        dists = torch.linalg.norm(dists, dim=2)
+        index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
+        batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
 
-        euc = np.abs(embedding + relation - prot_embeds_new)
-        maximum = np.maximum(euc - prot_offsets_new + offset, np.zeros(euc.shape))
-        res = np.reshape((np.linalg.norm(maximum, axis=1)), -1)
-        index = rankdata(res, method='average')
+        top1 += (batch_ranks <= 1).sum()
+        top10 += (batch_ranks <= 10).sum()
+        top100 += (batch_ranks <= 100).sum()
+        ranks = torch.cat((ranks, batch_ranks))
 
-        rank = index[d]
+        dists = dists * train_labels[r.item()][batch_data[:, 0]]
+        index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
+        batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
 
-        # print(rank,res[d])
+        ftop1 += (batch_ranks <= 1).sum()
+        ftop10 += (batch_ranks <= 10).sum()
+        ftop100 += (batch_ranks <= 100).sum()
+        franks = torch.cat((franks, batch_ranks))
 
-        # print(1 / 0)
-        if rank == 1:
-            top1 += 1
-        if rank <= 10:
-            top10 += 1
-        if rank <= 100:
-            top100 += 1
-        mean_rank += rank
-        if rank not in ranks:
-            ranks[rank] = 0
-        ranks[rank] += 1
-
-        # Filtered rank
-        index = rankdata((res * train_labels[r][c, :]), method='average')
-        rank = index[d]
-        if rank == 1:
-            ftop1 += 1
-        if rank <= 10:
-            ftop10 += 1
-        if rank <= 100:
-            ftop100 += 1
-        fmean_rank += rank
-
-        if rank not in franks:
-            franks[rank] = 0
-        franks[rank] += 1
     top1 /= n
     top10 /= n
     top100 /= n
-    mean_rank /= n
+    mean_rank = torch.mean(ranks)
     ftop1 /= n
     ftop10 /= n
     ftop100 /= n
-    fmean_rank /= n
+    fmean_rank = torch.mean(franks)
 
-    rank_auc = compute_rank_roc(ranks, len(proteins))
-    frank_auc = compute_rank_roc(franks, len(proteins))
+    ranks_dict = Counter(ranks.tolist())
+    franks_dict = Counter(franks.tolist())
+    rank_auc = compute_rank_roc(ranks_dict, len(proteins))
+    frank_auc = compute_rank_roc(franks_dict, len(proteins))
 
     print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
     print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
