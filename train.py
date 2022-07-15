@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click as ck
 import torch.optim as optim
-from model.ELBoxlModel import ELBoxModel
+from model.ELBoxModel import ELBoxModel
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -58,7 +58,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin1=-0.1)  # TODO: margin
+    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
 
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)

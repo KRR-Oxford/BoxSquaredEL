@@ -15,10 +15,10 @@ class ELBoxModel(nn.Module):
         margin: the distance that two box apart
     """
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
         super(ELBoxModel, self).__init__()
 
-        self.margin1 = margin1
+        self.margin = margin
         self.classNum = len(class_)
         self.class_ = class_
         self.relationNum = relationNum
@@ -50,15 +50,11 @@ class ELBoxModel(nn.Module):
         cr = torch.abs(c[:, self.embedding_dim:])
         dr = torch.abs(d[:, self.embedding_dim:])
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
         cen1 = c1
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
-        #  print(cr)
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(euc + cr - dr - self.margin, min=0), axis=1), [-1, 1])
 
         return dst
 
@@ -81,15 +77,13 @@ class ELBoxModel(nn.Module):
         newR = torch.abs(startAll - endAll) / 2
         er = torch.abs(e2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
         cen1 = (startAll + endAll) / 2
         cen2 = e1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + newR - er + margin, zeros), axis=1), [-1, 1]) \
-              + torch.linalg.norm(torch.maximum(startAll - endAll, zeros), axis=1)
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(euc + newR - er - self.margin, min=0), axis=1), [-1, 1]) \
+              + torch.linalg.norm(torch.clamp(startAll - endAll, min=0), axis=1)
+
         return dst
 
     def disJointLoss(self, input):
@@ -107,14 +101,11 @@ class ELBoxModel(nn.Module):
         cr = torch.abs(c2)
         dr = torch.abs(d2)
 
-        margin = (torch.ones(d1.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d1.shape, requires_grad=False)).to(self.device)
-
         cen1 = c1
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(-euc + cr + dr - self.margin, min=0), axis=1), [-1, 1])
 
         return dst
 
@@ -129,14 +120,11 @@ class ELBoxModel(nn.Module):
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
-
         cen1 = c_center + r
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + c_offset - d_offset + margin, zeros), axis=1),
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(euc + c_offset - d_offset - self.margin, min=0), axis=1),
                             [-1, 1])
 
         return dst
@@ -152,14 +140,11 @@ class ELBoxModel(nn.Module):
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
-
         cen1 = c_center + r
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - c_offset - d_offset - margin, zeros), axis=1),
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(euc - c_offset - d_offset + self.margin, min=0), axis=1),
                             [-1, 1])
 
         return dst
@@ -176,14 +161,11 @@ class ELBoxModel(nn.Module):
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
 
-        margin = (torch.ones(d_center.shape, requires_grad=False) * self.margin1).to(self.device)
-        zeros = (torch.zeros(d_center.shape, requires_grad=False)).to(self.device)
-
         cen1 = c_center - r
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - c_offset - d_offset + margin, zeros), axis=1),
+        dst = torch.reshape(torch.linalg.norm(torch.clamp(euc - c_offset - d_offset - self.margin, min=0), axis=1),
                             [-1, 1])
 
         return dst
