@@ -50,14 +50,31 @@ def main():
     test_file = f'data/{dataset}/{dataset}_test.txt'
     test_data = load_valid_data(test_file, classes, relations)
 
+    acc = compute_accuracy(embeds, embedding_size, test_data, device)
     top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, embedding_size, test_data, device, use_tqdm=True)
 
     ranks_dict = Counter(ranks.tolist())
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)
 
-    print(
-        f'{dataset}: top1: {top1:.2f}, top10: {top10:.2f}, top100: {top100:.2f}, mean: {mean_rank:.2f}, median: {torch.median(ranks):.2f}, auc: {rank_auc:.2f}')
+    print(f'{dataset}: acc: {acc:.2f}, top1: {top1:.2f}, top10: {top10:.2f}, '
+          f'top100: {top100:.2f}, mean: {mean_rank:.2f}, median: {torch.median(ranks):.2f}, auc: {rank_auc:.2f}')
 
+
+def compute_accuracy(embeds, embedding_size, eval_data, device):
+    offsets = torch.abs(embeds[:, embedding_size:])
+    embeds = embeds[:, :embedding_size]
+    eval_data = torch.tensor(eval_data, requires_grad=False).long().to(device)
+
+    c_embeds = embeds[eval_data[:, 0]]
+    c_offsets = offsets[eval_data[:, 0]]
+    d_embeds = embeds[eval_data[:, 2]]
+    d_offsets = offsets[eval_data[:, 2]]
+
+    euc = torch.abs(c_embeds - d_embeds)
+    results = euc + c_offsets - d_offsets
+    results = torch.clamp(results, min=0)
+    results = results.sum(dim=1)
+    return (results == 0).sum().item() / eval_data.shape[0]
 
 def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use_tqdm=False):
     offsets = torch.abs(embeds[:, embedding_size:])

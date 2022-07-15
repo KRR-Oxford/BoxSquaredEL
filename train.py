@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 import click as ck
-import numpy
 import torch.optim as optim
 from model.ELBoxlModel import ELBoxModel
 from utils.el_data_loader import load_data, load_valid_data
 import logging
-import torch
 import pandas as pd
-import numpy as np
 from tqdm import trange
 import wandb
-from evaluate import compute_ranks
+from evaluate import compute_ranks, compute_accuracy
 
 from utils.utils import get_device
 
@@ -87,6 +84,8 @@ def train(model, data, val_data, optimizer, out_classes_file, out_relations_file
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0:
             embeds = model.classEmbeddingDict.weight.clone().detach()
+            acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
+            wandb.log({'acc': acc})
             top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device)
             wandb.log({'top10': top10, 'top100': top100, 'mean_rank': mean_rank})
             if top100 > best_top100:
