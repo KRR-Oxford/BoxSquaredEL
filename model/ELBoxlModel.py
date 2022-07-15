@@ -19,7 +19,6 @@ class ELBoxModel(nn.Module):
         super(ELBoxModel, self).__init__()
 
         self.margin1 = margin1
-        self.margin = 0
         self.classNum = len(class_)
         self.class_ = class_
         self.relationNum = relationNum
@@ -224,12 +223,16 @@ class ELBoxModel(nn.Module):
         loss4 = mseloss(loss4, torch.zeros(loss4.shape, requires_grad=False).to(self.device))
 
         # disJoint
-        rand_index = np.random.choice(len(input['disjoint']), size=batch)
-        disJointData = input['disjoint'][rand_index]
-        disJointData = disJointData.to(self.device)
-        disJointLoss = self.disJointLoss(disJointData)
-        mseloss = nn.MSELoss(reduce=True)
-        disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+        if len(input['disjoint']) == 0:
+            disJointLoss = 0
+        else:
+            rand_index = np.random.choice(len(input['disjoint']), size=batch)
+            disJointData = input['disjoint'][rand_index]
+            disJointData = disJointData.to(self.device)
+            disJointLoss = self.disJointLoss(disJointData)
+            mseloss = nn.MSELoss(reduce=True)
+            disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
