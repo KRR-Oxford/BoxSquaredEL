@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from xml.etree import ElementTree as ET
 import torch
+from joblib import Memory
 
 BIOLOGICAL_PROCESS = 'GO:0008150'
 MOLECULAR_FUNCTION = 'GO:0003674'
@@ -17,6 +18,9 @@ EXP_CODES = {'EXP', 'IDA', 'IPI', 'IMP', 'IGI', 'IEP', 'TAS', 'IC', 'HTP', 'HDA'
 CAFA_TARGETS = {'10090', '223283', '273057', '559292', '85962', '10116', '224308', '284812', '7227', '9606', '160488',
                 '237561', '321314', '7955', '99287', '170187', '243232', '3702', '83333', '208963', '243273', '44689',
                 '8355'}
+
+cachedir = 'cache'
+memory = Memory(cachedir, verbose=0)
 
 def is_cafa_target(org):
     return org in CAFA_TARGETS

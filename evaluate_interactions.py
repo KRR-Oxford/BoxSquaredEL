@@ -9,7 +9,7 @@ import torch
 
 from sklearn.metrics import roc_curve, auc
 import math
-from utils.utils import get_device
+from utils.utils import get_device, memory
 
 logging.basicConfig(level=logging.INFO)
 
@@ -96,7 +96,7 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
     eval_data = test_data
     n = len(eval_data)
 
-    batch_size = 200
+    batch_size = 1000
     num_batches = math.ceil(n / batch_size)
     eval_data = [(prot_dict[classes[c]], relations[r], prot_dict[classes[d]]) for c, r, d in eval_data]
     eval_data = torch.tensor(eval_data, requires_grad=False).to(device)
@@ -199,6 +199,7 @@ def compute_fmax(labels, preds):
     return fmax, pmax, rmax, tmax, tpmax, fpmax, fnmax
 
 
+@memory.cache
 def load_data(data_file, classes, relations):
     data = []
     rel = f'<http://interacts>'

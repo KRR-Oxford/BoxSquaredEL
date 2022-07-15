@@ -1,13 +1,14 @@
 import numpy as np
+import torch
 
-from utils.utils import get_device
+from utils.utils import get_device, memory
 
 np.random.seed(100)
-import torch
 
 device = get_device()
 
 
+@memory.cache
 def load_valid_data(valid_data_file, classes, relations):
     data = []
     rel = f'SubClassOf'
@@ -61,6 +62,7 @@ def get_all_sub_cls(dataset):
     return all_sub_cls
 
 
+@memory.cache
 def load_data(dataset):
     filename = f"data/{dataset}/{dataset}_latest_norm_mod.owl"
     classes = {}

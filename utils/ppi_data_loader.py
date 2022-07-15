@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from utils.utils import memory
 import  random
 np.random.seed(100)
 
@@ -16,7 +17,7 @@ Return:
     relations: dictonary, key is relation name, value is according index
 '''
 
-
+@memory.cache
 def load_data(filename):
 
     classes = {}
