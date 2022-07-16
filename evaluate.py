@@ -72,7 +72,7 @@ def compute_accuracy(embeds, embedding_size, eval_data, device):
 
     euc = torch.abs(c_embeds - d_embeds)
     results = euc + c_offsets - d_offsets
-    results = torch.clamp(results, min=0)
+    results = torch.relu(results)
     results = results.sum(dim=1)
     return (results == 0).sum().item() / eval_data.shape[0]
 
@@ -104,7 +104,7 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
         # batch_offsets = offsets[batch_data[:, 0]]
         # eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
         # dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        # dists = torch.clamp(dists, min=0)
+        # dists = torch.relu(dists)
 
         # batch_starts = embeds[batch_data[:, 0]] - offsets[batch_data[:, 0]]
         # starts = embeds - offsets
@@ -113,7 +113,7 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
         # ends = embeds + offsets
         # ends = torch.minimum(batch_ends[:, None, :], torch.tile(ends, (current_batch_size, 1, 1)))
         # inter_vols =  torch.abs(starts - ends).prod(dim=)
-        # log_inter_vols = torch.log(torch.clamp(ends-starts, min=0) + 1e-3).sum(dim=2)
+        # log_inter_vols = torch.log(torch.relu(ends-starts) + 1e-3).sum(dim=2)
         # dists = -log_inter_vols
 
         dists = torch.linalg.norm(dists, dim=2, ord=1)  # TODO: ord=1
