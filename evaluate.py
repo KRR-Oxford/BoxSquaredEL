@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import torch
 import math
-from tqdm import trange
+from tqdm import trange, tqdm
 
 from utils.utils import get_device
 from utils.el_data_loader import load_data, load_valid_data
@@ -56,7 +56,7 @@ def main():
     ranks_dict = Counter(ranks.tolist())
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)
 
-    print(f'{dataset}: acc: {acc:.2f}, top1: {top1:.2f}, top10: {top10:.2f}, '
+    print(f'{dataset}: acc: {acc:.3f}, top1: {top1:.2f}, top10: {top10:.2f}, '
           f'top100: {top100:.2f}, mean: {mean_rank:.2f}, median: {torch.median(ranks):.2f}, auc: {rank_auc:.2f}')
 
 
@@ -72,9 +72,25 @@ def compute_accuracy(embeds, embedding_size, eval_data, device):
 
     euc = torch.abs(c_embeds - d_embeds)
     results = euc + c_offsets - d_offsets
-    results = torch.relu(results)
-    results = results.sum(dim=1)
-    return (results == 0).sum().item() / eval_data.shape[0]
+    return (results <= 0).all(dim=1).float().mean()
+
+
+def compute_accuracy2(embeds, embedding_size, eval_data, device):
+    offsets = torch.abs(embeds[:, embedding_size:])
+    embeds = embeds[:, :embedding_size]
+
+    acc = 0
+    for (c, r, d) in eval_data:
+        c_min = embeds[c] - offsets[c]
+        c_max = embeds[c] + offsets[c]
+        d_min = embeds[d] - offsets[d]
+        d_max = embeds[d] + offsets[d]
+        if (c_min >= d_min).all().item() and (c_max <= d_max).all().item():
+            acc += 1
+
+    print(f'Number correct: {acc}')
+    return acc / len(eval_data)
+
 
 def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use_tqdm=False):
     offsets = torch.abs(embeds[:, embedding_size:])
@@ -99,12 +115,18 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
 
         batch_embeds = embeds[batch_data[:, 0]]
         dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
+        dists = torch.linalg.norm(dists, dim=2, ord=2)
 
         # batch_embeds = embeds[batch_data[:, 0]]
         # batch_offsets = offsets[batch_data[:, 0]]
         # eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
         # dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        # dists = torch.relu(dists)
+        # dists = dists.relu().mean(dim=2)  # dists = dists.relu().mean(dim=2)
+
+        # l2s = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
+        # l2s = torch.linalg.norm(l2s, dim=2, ord=2)
+        # dists[dists == 0] = - 1 / l2s[dists == 0]
+
 
         # batch_starts = embeds[batch_data[:, 0]] - offsets[batch_data[:, 0]]
         # starts = embeds - offsets
@@ -112,11 +134,9 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
         # batch_ends = embeds[batch_data[:, 0]] + offsets[batch_data[:, 0]]
         # ends = embeds + offsets
         # ends = torch.minimum(batch_ends[:, None, :], torch.tile(ends, (current_batch_size, 1, 1)))
-        # inter_vols =  torch.abs(starts - ends).prod(dim=)
         # log_inter_vols = torch.log(torch.relu(ends-starts) + 1e-3).sum(dim=2)
         # dists = -log_inter_vols
 
-        dists = torch.linalg.norm(dists, dim=2, ord=1)  # TODO: ord=1
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
         batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
 

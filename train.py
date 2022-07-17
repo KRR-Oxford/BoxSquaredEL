@@ -44,7 +44,7 @@ logging.basicConfig(level=logging.INFO)
     help='Pandas pkl file with loss history')
 def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    dataset = 'ANATOMY'
+    dataset = 'GALEN'
     embedding_dim = 50
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
@@ -60,7 +60,6 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     print('Loaded data.')
     model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
 
-
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
     model = model.to(device)
     train(model, train_data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, val_freq=100)
@@ -70,7 +69,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # save_model(model, out_classes_file, out_relations_file, classes, relations)
 
 
-def train(model, data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, num_epochs=7000, val_freq=100):
+def train(model, data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, num_epochs=5000, val_freq=100):
     model.train()
     wandb.watch(model)
     best_top100 = 0
