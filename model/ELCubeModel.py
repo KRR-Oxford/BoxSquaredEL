@@ -5,7 +5,7 @@ import torch
 np.random.seed(12)
 
 
-class ELBoxModel(nn.Module):
+class ELCubeModel(nn.Module):
     """
 
     Args:
@@ -16,7 +16,7 @@ class ELBoxModel(nn.Module):
     """
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
-        super(ELBoxModel, self).__init__()
+        super(ELCubeModel, self).__init__()
 
         self.margin = margin
         self.classNum = len(class_)
@@ -26,7 +26,7 @@ class ELBoxModel(nn.Module):
         self.reg_norm = 1
         self.inf = 4
 
-        self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
+        self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim + 1)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
         self.classEmbeddingDict.weight.data /= torch.linalg.norm(self.classEmbeddingDict.weight.data, axis=1).reshape(
             -1, 1)
@@ -41,49 +41,52 @@ class ELBoxModel(nn.Module):
     # cClass isSubSetof dClass
 
     def nf1Loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 1])
+        cs = self.classEmbeddingDict(input[:, 0])
+        ds = self.classEmbeddingDict(input[:, 1])
 
-        c1 = c[:, :self.embedding_dim]
-        d1 = d[:, :self.embedding_dim]
+        c_centers = cs[:, :self.embedding_dim]
+        d_centers = ds[:, :self.embedding_dim]
 
-        cr = torch.abs(c[:, self.embedding_dim:])
-        dr = torch.abs(d[:, self.embedding_dim:])
+        c_radii = torch.abs(cs[:, -1])[:, None]
+        d_radii = torch.abs(ds[:, -1])[:, None]
 
-        cen1 = c1
-        cen2 = d1
-        euc = torch.abs(cen1 - cen2)
+        dirs = c_centers - d_centers
+        faces = torch.abs(dirs).argmax(dim=1).reshape(-1, 1)
+        dir_vals = torch.take_along_dim(dirs, faces, dim=1)
+        d_inter = d_centers - (dirs / dir_vals) * d_radii
+        c_inter = c_centers - (dirs / dir_vals) * c_radii
+        dists = torch.linalg.norm(dirs, axis=1) + torch.linalg.norm(c_inter - c_centers, axis=1) - torch.linalg.norm(
+            d_inter - d_centers, axis=1)
+        dists = dists.reshape(-1, 1)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + cr - dr - self.margin), axis=1), [-1, 1])
-
-        return dst + self.reg(c1, cr) + self.reg(d1, dr)
+        return dists + self.reg(c_centers, c_radii) + self.reg(d_centers, d_radii)
 
     # cClass and dCLass isSubSetof eClass
     def nf2Loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 1])
-        e = self.classEmbeddingDict(input[:, 2])
-        c1 = c[:, :self.embedding_dim]
-        d1 = d[:, :self.embedding_dim]
-        e1 = e[:, :self.embedding_dim]
+        cs = self.classEmbeddingDict(input[:, 0])
+        ds = self.classEmbeddingDict(input[:, 1])
+        es = self.classEmbeddingDict(input[:, 2])
+        c_centers = cs[:, :self.embedding_dim]
+        d_centers = ds[:, :self.embedding_dim]
+        e_centers = es[:, :self.embedding_dim]
 
-        c2 = torch.abs(c[:, self.embedding_dim:])
-        d2 = torch.abs(d[:, self.embedding_dim:])
-        e2 = torch.abs(e[:, self.embedding_dim:])
+        c_radii = torch.abs(cs[:, -1])[:, None]
+        d_radii = torch.abs(ds[:, -1])[:, None]
+        e_radii = torch.abs(es[:, -1])[:, None]
 
-        startAll = torch.maximum(c1 - c2, d1 - d2)
-        endAll = torch.minimum(c1 + c2, d1 + d2)
+        startAll = torch.maximum(c_centers - c_radii, d_centers - d_radii)
+        endAll = torch.minimum(c_centers + c_radii, d_centers + d_radii)
 
         newR = torch.abs(startAll - endAll) / 2
 
         cen1 = (startAll + endAll) / 2
-        cen2 = e1
+        cen2 = e_centers
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + newR - e2 - self.margin), axis=1), [-1, 1]) \
+        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + newR - e_radii - self.margin), axis=1), [-1, 1]) \
               + torch.linalg.norm(torch.relu(startAll - endAll), axis=1)
 
-        return dst + self.reg(c1, c2) + self.reg(d1, d2) + self.reg(e1, e2)
+        return dst + self.reg(c_centers, c_radii) + self.reg(d_centers, d_radii) + self.reg(e_centers, e_radii)
 
     def disJointLoss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
@@ -92,8 +95,8 @@ class ELBoxModel(nn.Module):
         c1 = c[:, :self.embedding_dim]
         d1 = d[:, :self.embedding_dim]
 
-        cr = torch.abs(c[:, self.embedding_dim:])
-        dr = torch.abs(d[:, self.embedding_dim:])
+        cr = torch.abs(c[:, -1])[:, None]
+        dr = torch.abs(d[:, -1])[:, None]
 
         cen1 = c1
         cen2 = d1
@@ -109,10 +112,10 @@ class ELBoxModel(nn.Module):
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, -1])[:, None]
 
         d_center = d[:, :self.embedding_dim]
-        d_offset = torch.abs(d[:, self.embedding_dim:])
+        d_offset = torch.abs(d[:, -1])[:, None]
 
         cen1 = c_center + r
         cen2 = d_center
@@ -129,10 +132,10 @@ class ELBoxModel(nn.Module):
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, -1])[:, None]
 
         d_center = d[:, :self.embedding_dim]
-        d_offset = torch.abs(d[:, self.embedding_dim:])
+        d_offset = torch.abs(d[:, -1])[:, None]
 
         cen1 = c_center + r
         cen2 = d_center
@@ -152,10 +155,10 @@ class ELBoxModel(nn.Module):
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, -1])[:, None]
 
         d_center = d[:, :self.embedding_dim]
-        d_offset = torch.abs(d[:, self.embedding_dim:])
+        d_offset = torch.abs(d[:, -1])[:, None]
 
         cen1 = c_center - r
         cen2 = d_center
@@ -169,7 +172,7 @@ class ELBoxModel(nn.Module):
     def reg(self, center, offset):
         # return torch.relu(center + offset - 1).mean(axis=1) + torch.relu(-(center - offset)).mean(axis=1)
         # return torch.relu(-offset).sum(axis=1)
-        return 0
+        return torch.abs(torch.linalg.norm(center, axis=1) - 1)
 
     def forward(self, input):
         batch = 512

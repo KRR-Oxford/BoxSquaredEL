@@ -1,22 +1,15 @@
 import numpy as np
 import torch.nn as nn
 import torch
+from torch.nn.functional import softplus
 
 np.random.seed(12)
 
 
-class ELBoxModel(nn.Module):
-    """
-
-    Args:
-        classNum: number of classes
-        relationNum: number of relations
-        embedding_dim: the dimension of the embedding(both class and relatio)
-        margin: the distance that two box apart
-    """
+class MyELBoxModel(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
-        super(ELBoxModel, self).__init__()
+        super(MyELBoxModel, self).__init__()
 
         self.margin = margin
         self.classNum = len(class_)
@@ -50,11 +43,9 @@ class ELBoxModel(nn.Module):
         cr = torch.abs(c[:, self.embedding_dim:])
         dr = torch.abs(d[:, self.embedding_dim:])
 
-        cen1 = c1
-        cen2 = d1
-        euc = torch.abs(cen1 - cen2)
+        euc = torch.abs(c1 - d1)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + cr - dr - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + cr - dr - self.margin), axis=1), [-1, 1])
 
         return dst + self.reg(c1, cr) + self.reg(d1, dr)
 
@@ -80,8 +71,8 @@ class ELBoxModel(nn.Module):
         cen2 = e1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + newR - e2 - self.margin), axis=1), [-1, 1]) \
-              + torch.linalg.norm(torch.relu(startAll - endAll), axis=1)
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + newR - e2 - self.margin), axis=1), [-1, 1]) \
+              + torch.linalg.norm(softplus(startAll - endAll), axis=1)
 
         return dst + self.reg(c1, c2) + self.reg(d1, d2) + self.reg(e1, e2)
 
@@ -99,7 +90,7 @@ class ELBoxModel(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(-euc + cr + dr - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(-euc + cr + dr - self.margin), axis=1), [-1, 1])
 
         return dst + self.reg(c1, cr) + self.reg(d1, dr)
 
@@ -118,7 +109,7 @@ class ELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc + c_offset - d_offset - self.margin), axis=1),
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin), axis=1),
                             [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
@@ -138,10 +129,7 @@ class ELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        # dst = torch.reshape(torch.linalg.norm(torch.relu(euc - c_offset - d_offset + self.margin), axis=1), [-1, 1])
-
-        # TODO:
-        dst = torch.reshape(torch.linalg.norm(torch.relu(-euc + c_offset + d_offset - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(-euc + c_offset + d_offset - self.margin), axis=1), [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
@@ -161,7 +149,7 @@ class ELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.relu(euc - c_offset - d_offset - self.margin), axis=1),
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin), axis=1),
                             [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
@@ -177,33 +165,25 @@ class ELBoxModel(nn.Module):
         rand_index = np.random.choice(len(input['nf1']), size=batch)
         nf1Data = input['nf1'][rand_index]
         nf1Data = nf1Data.to(self.device)
-        loss1 = self.nf1Loss(nf1Data)
-        mseloss = nn.MSELoss(reduce=True)
-        loss1 = mseloss(loss1, torch.zeros(loss1.shape, requires_grad=False).to(self.device))
+        loss1 = self.nf1Loss(nf1Data).mean()
 
         # nf2
         rand_index = np.random.choice(len(input['nf2']), size=batch)
         nf2Data = input['nf2'][rand_index]
         nf2Data = nf2Data.to(self.device)
-        loss2 = self.nf2Loss(nf2Data)
-        mseloss = nn.MSELoss(reduce=True)
-        loss2 = mseloss(loss2, torch.zeros(loss2.shape, requires_grad=False).to(self.device))
+        loss2 = self.nf2Loss(nf2Data).mean()
 
         # nf3
         rand_index = np.random.choice(len(input['nf3']), size=batch)
         nf3Data = input['nf3'][rand_index]
         nf3Data = nf3Data.to(self.device)
-        loss3 = self.nf3Loss(nf3Data)
-        mseloss = nn.MSELoss(reduce=True)
-        loss3 = mseloss(loss3, torch.zeros(loss3.shape, requires_grad=False).to(self.device))
+        loss3 = self.nf3Loss(nf3Data).mean()
 
         # nf4
         rand_index = np.random.choice(len(input['nf4']), size=batch)
         nf4Data = input['nf4'][rand_index]
         nf4Data = nf4Data.to(self.device)
-        loss4 = self.nf4Loss(nf4Data)
-        mseloss = nn.MSELoss(reduce=True)
-        loss4 = mseloss(loss4, torch.zeros(loss4.shape, requires_grad=False).to(self.device))
+        loss4 = self.nf4Loss(nf4Data).mean()
 
         # disJoint
         if len(input['disjoint']) == 0:
@@ -212,20 +192,13 @@ class ELBoxModel(nn.Module):
             rand_index = np.random.choice(len(input['disjoint']), size=batch)
             disJointData = input['disjoint'][rand_index]
             disJointData = disJointData.to(self.device)
-            disJointLoss = self.disJointLoss(disJointData)
-            mseloss = nn.MSELoss(reduce=True)
-            disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+            disJointLoss = self.disJointLoss(disJointData).mean()
 
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
         negData = negData.to(self.device)
-        negLoss = self.neg_loss(negData)
+        negLoss = self.neg_loss(negData).mean()
 
-        mseloss = nn.MSELoss(reduce=True)
-        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
-
-        totalLoss = [
-            loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]  # +negLoss #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
-
-        return (totalLoss)
+        totalLoss = [loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
+        return totalLoss

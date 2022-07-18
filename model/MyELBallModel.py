@@ -1,33 +1,29 @@
 import numpy as np
 import torch.nn as nn
 import torch
+
 np.random.seed(12)
-class ELBallModel(nn.Module):
-    '''
 
-    Args:
-        classNum: number of classes
-        relationNum: number of relations
-        embedding_dim: the dimension of the embedding(both class and relatio)
-        margin: the distance that two box apart
-    '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim,batch , margin=0):
-        super(ELBallModel, self).__init__()
+class MyELBallModel(nn.Module):
+
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
+        super(MyELBallModel, self).__init__()
         self.margin = margin
         self.classNum = len(class_)
         self.relationNum = relationNum
         self.device = device
-        self.reg_norm=1
-        self.inf=5
+        self.reg_norm = 1
+        self.inf = 5
         self.batch = batch
 
-        self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim+1)
+        self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim + 1)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
-        self.classEmbeddingDict.weight.data /= torch.linalg.norm(self.classEmbeddingDict.weight.data,axis=1).reshape(-1,1)
+        self.classEmbeddingDict.weight.data /= torch.linalg.norm(self.classEmbeddingDict.weight.data, axis=1).reshape(
+            -1, 1)
 
         self.relationEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
-        nn.init.uniform_(self.relationEmbeddingDict.weight,a=-1,b=1)
+        nn.init.uniform_(self.relationEmbeddingDict.weight, a=-1, b=1)
         self.relationEmbeddingDict.weight.data /= torch.linalg.norm(
             self.relationEmbeddingDict.weight.data, axis=1).reshape(-1, 1)
 
@@ -43,17 +39,19 @@ class ELBallModel(nn.Module):
         c = self.classEmbeddingDict(input[:, 0])
         d = self.classEmbeddingDict(input[:, 1])
 
-        rc = torch.abs(c[:, -1])
-        rd = torch.abs(d[:, -1])
+        rc = torch.abs(c[:, -1])[:, None]
+        rd = torch.abs(d[:, -1])[:, None]
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
 
-        euc = torch.linalg.norm(x1 - x2, axis=1)
+        dir = c - d
+
+
+        euc = torch.abs(x1 - x2)
         relu = torch.nn.ReLU()
-        dst = torch.reshape(relu(euc + rc - rd + self.margin), [-1, 1])
+        dst = torch.reshape(torch.mean(relu(euc + rc - rd + self.margin)), [-1, 1])
 
         return dst + self.reg(x1) + self.reg(x2)
-
 
     # cClass and dCLass isSubSetof eClass
     def nf2Loss(self, input):
@@ -112,7 +110,6 @@ class ELBallModel(nn.Module):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
 
-
         rc = torch.abs(c[:, -1])
         rd = torch.abs(d[:, -1])
 
@@ -123,6 +120,7 @@ class ELBallModel(nn.Module):
 
         return dst + self.reg(x1) + self.reg(x2)
         # cClass is_NOT_SubSet of relation some dClass
+
     def neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         r = self.relationEmbeddingDict(input[:, 1])
@@ -136,9 +134,10 @@ class ELBallModel(nn.Module):
         x3 = x1 + r
         euc = torch.linalg.norm(x3 - x2, axis=1)
 
-     #   relu = torch.nn
+        #   relu = torch.nn
         dst = torch.reshape((-(euc - rc - rd) + self.margin), [-1, 1])
         return dst + self.reg(x1) + self.reg(x2)
+
     # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
         c = self.classEmbeddingDict(input[:, 1])
@@ -160,30 +159,26 @@ class ELBallModel(nn.Module):
         dst = torch.reshape(torch.linalg.norm(x3 - x2, axis=1), [-1, 1])
 
         relu = torch.nn.ReLU()
-        dst_loss = relu(dst + rc - rd - self.margin)
+        dst_loss = relu(dst - sr - self.margin)
         return dst_loss + self.reg(x1) + self.reg(x2)
-
 
     def top_loss(self, input):
         d = self.classEmbeddingDict(input[0])
         rd = torch.reshape(torch.abs(d[-1]), [-1, 1])
         return torch.abs(rd - self.inf)
 
-
-
     def forward(self, input):
         batch = self.batch
 
-
         rand_index = np.random.choice(len(input['nf1']), size=batch)
-       # print(len(input['nf1']))
+        # print(len(input['nf1']))
         nf1Data = input['nf1'][rand_index]
         nf1Data = nf1Data.to(self.device)
         loss1 = self.nf1Loss(nf1Data)
 
         # nf2
         rand_index = np.random.choice(len(input['nf2']), size=batch)
-     #   print(input['nf2'])
+        #   print(input['nf2'])
         nf2Data = input['nf2'][rand_index]
         nf2Data = nf2Data.to(self.device)
         loss2 = self.nf2Loss(nf2Data)
@@ -217,5 +212,5 @@ class ELBallModel(nn.Module):
         negData = negData.to(self.device)
         negLoss = self.neg_loss(negData)
 
-        totalLoss =  [loss1.mean()+loss2.mean()+disJointLoss.mean()+loss4.mean()+loss3.mean()+negLoss.mean() ]
+        totalLoss = [loss1.mean() + loss2.mean() + disJointLoss.mean() + loss4.mean() + loss3.mean() + negLoss.mean()]
         return totalLoss

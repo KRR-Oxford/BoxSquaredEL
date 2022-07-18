@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 import click as ck
+import numpy as np
+import torch
 import torch.optim as optim
 from model.ELBoxModel import ELBoxModel
+from model.ElBallModel import ELBallModel
+from model.ELCubeModel import ELCubeModel
+from model.MyELBallModel import MyELBallModel
+from model.MyELBoxModel import MyELBoxModel
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -44,13 +50,13 @@ logging.basicConfig(level=logging.INFO)
     help='Pandas pkl file with loss history')
 def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    dataset = 'GALEN'
+    dataset = 'GO'
     embedding_dim = 50
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
     val_file = f'data/{dataset}/{dataset}_valid.txt'
 
-    wandb.init(project=f"el2box-{dataset}", entity="krr")
+    wandb.init(project=f"el2box-restricted-{dataset}", entity="krr")
 
     device = get_device()
 
@@ -58,7 +64,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
+    model = MyELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
     model = model.to(device)
@@ -69,13 +75,22 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # save_model(model, out_classes_file, out_relations_file, classes, relations)
 
 
-def train(model, data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, num_epochs=5000, val_freq=100):
+def train(model, data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, num_epochs=2000, val_freq=100):
     model.train()
     wandb.watch(model)
+    best_top10 = 0
     best_top100 = 0
     best_epoch = 0
 
     for epoch in trange(num_epochs):
+        # nf3 = data['nf3']
+        # randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
+        # randoms = torch.from_numpy(randoms)
+        # new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
+        # new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
+        # new_neg = torch.cat([new_tails, new_heads], dim=0)
+        # data['nf3_neg'] = new_neg
+
         re = model(data)
         loss = sum(re)
         wandb.log({'loss': loss})
@@ -87,8 +102,8 @@ def train(model, data, val_data, optimizer, out_classes_file, out_relations_file
             wandb.log({'acc': acc})
             top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device)
             wandb.log({'top10': top10, 'top100': top100, 'mean_rank': mean_rank})
-            if top100 > best_top100:
-                best_top100 = top100
+            if top10 > best_top10:
+                best_top10 = top10
                 best_epoch = epoch
                 save_model(model, f'{out_classes_file}_best.pkl', f'{out_relations_file}_best.pkl', classes, relations)
 

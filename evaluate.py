@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import math
 from tqdm import trange, tqdm
+from torch.nn.functional import softplus
 
 from utils.utils import get_device
 from utils.el_data_loader import load_data, load_valid_data
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    dataset = 'GALEN'
+    dataset = 'GO'
     embedding_size = 50
 
     cls_embeds_file = f'data/{dataset}/classELEmbed_best.pkl'
@@ -94,6 +95,7 @@ def compute_accuracy2(embeds, embedding_size, eval_data, device):
 
 def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use_tqdm=False):
     offsets = torch.abs(embeds[:, embedding_size:])
+    radii = torch.abs(embeds[:, -1])
     embeds = embeds[:, :embedding_size]
 
     top1 = 0.
@@ -113,15 +115,21 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
         current_batch_size = min(batch_size, n - start)
         batch_data = eval_data[start:start + current_batch_size, :]
 
+        # batch_embeds = embeds[batch_data[:, 0]]
+        # dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
+        # dists = torch.linalg.norm(dists, dim=2, ord=2)
+
         batch_embeds = embeds[batch_data[:, 0]]
-        dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
-        dists = torch.linalg.norm(dists, dim=2, ord=2)
+        batch_offsets = offsets[batch_data[:, 0]]
+        eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
+        dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
+        dists = softplus(dists).mean(dim=2)  # dists = dists.relu().mean(dim=2)
 
         # batch_embeds = embeds[batch_data[:, 0]]
-        # batch_offsets = offsets[batch_data[:, 0]]
+        # batch_offsets = radii[batch_data[:, 0]]
         # eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
-        # dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        # dists = dists.relu().mean(dim=2)  # dists = dists.relu().mean(dim=2)
+        # dists = eucs - radii[None, :, None] + batch_offsets[:, None, None]
+        # dists = softplus(dists).mean(dim=2)  # dists = dists.relu().mean(dim=2)
 
         # l2s = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
         # l2s = torch.linalg.norm(l2s, dim=2, ord=2)
