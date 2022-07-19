@@ -135,4 +135,5 @@ data/
 wandb
 .idea
 cache
+scratch.ipynb
 
