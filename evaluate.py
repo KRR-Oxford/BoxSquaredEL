@@ -127,7 +127,8 @@ def compute_ranks(embeds, embedding_size, eval_data, device, beta, batch_size=10
         batch_offsets = offsets[batch_data[:, 0]]
         eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
         dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        dists = softplus(dists, beta=beta).mean(dim=2)  # dists = dists.relu().mean(dim=2)
+        # dists = softplus(dists, beta=beta).mean(dim=2)  # dists = dists.relu().mean(dim=2)
+        dists = torch.linalg.norm(softplus(dists, beta=beta), dim=2)
 
 
         # batch_starts = embeds[batch_data[:, 0]] - offsets[batch_data[:, 0]]

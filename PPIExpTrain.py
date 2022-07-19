@@ -3,6 +3,7 @@ import click as ck
 import numpy
 import torch.optim as optim
 from model.ELBoxModel import ELBoxModel
+from model.Original import Original
 from utils.ppi_data_loader import load_data, load_valid_data
 import logging
 import torch
@@ -69,7 +70,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin1=-0.05)
+    model = Original(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin1=-0.05)
 
     #
     # checkpoint = torch.load('./netPlot.pkl')

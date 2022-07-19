@@ -6,6 +6,7 @@ import logging
 from tqdm import trange
 import numpy as np
 import torch
+from torch.nn.functional import softplus
 
 from sklearn.metrics import roc_curve, auc
 import math
@@ -28,10 +29,10 @@ dataset_id = 4932 if dataset == 'yeast' else 9606
     '--test-data-file', '-tsdf', default=f'data/data-test/{dataset_id}.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/classPPIEmbed.pkl',
+    '--cls-embeds-file', '-cef', default='data/classPPIEmbed.pkl_last.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/relationPPIEmbed.pkl',
+    '--rel-embeds-file', '-ref', default='data/relationPPIEmbed.pkl_last.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=-0.1,
@@ -112,7 +113,8 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
         batch_offsets = prot_offsets[batch_data[:, 0]]
         eucs = torch.abs(batch_translated[:, None, :] - torch.tile(prot_embeds, (current_batch_size, 1, 1)))
         dists = eucs - prot_offsets[None, :, :] + batch_offsets[:, None, :]
-        dists = torch.linalg.norm(dists.relu(), dim=2)
+        dists = torch.linalg.norm(softplus(dists, beta=3), dim=2)  # TODO: dists.relu()
+
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
         batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
 
