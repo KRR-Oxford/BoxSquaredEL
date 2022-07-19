@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import math
 from tqdm import trange, tqdm
-from torch.nn.functional import softplus
+from torch.nn.functional import softplus, relu
 
 from utils.utils import get_device
 from utils.el_data_loader import load_data, load_valid_data
@@ -15,13 +15,16 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    dataset = 'GO'
-    embedding_size = 50
+    evaluate('GALEN', embedding_size=50, beta=1)
+    # evaluate('GO', embedding_size=100, beta=1)
+    # evaluate('ANATOMY', embedding_size=50, beta=.5)
 
-    cls_embeds_file = f'data/{dataset}/classELEmbed_best.pkl'
+
+def evaluate(dataset, embedding_size, beta, last=False):
+    which_model = 'last' if last else 'best'
+    cls_embeds_file = f'data/{dataset}/classELEmbed_{which_model}.pkl'
     # rel_embeds_file = f'data/{dataset}/relationELEmbed.pkl'
 
-    print('Evaluating')
     device = get_device()
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -35,6 +38,7 @@ def main():
     # r_embeds_list = rel_df['embeddings'].values
     # relations = {v: k for k, v in enumerate(rel_df['relations'])}
     size = len(embeds_list[0])
+    assert(size == 2 * embedding_size)
     embeds = torch.zeros((nb_classes, size), requires_grad=False).to(device)
     for i, emb in enumerate(embeds_list):
         embeds[i, :] = torch.from_numpy(emb).to(device)
@@ -52,7 +56,8 @@ def main():
     test_data = load_valid_data(test_file, classes, relations)
 
     acc = compute_accuracy(embeds, embedding_size, test_data, device)
-    top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, embedding_size, test_data, device, use_tqdm=True)
+    top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, embedding_size, test_data, device, beta,
+                                                          use_tqdm=True)
 
     ranks_dict = Counter(ranks.tolist())
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)
@@ -93,9 +98,8 @@ def compute_accuracy2(embeds, embedding_size, eval_data, device):
     return acc / len(eval_data)
 
 
-def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use_tqdm=False):
+def compute_ranks(embeds, embedding_size, eval_data, device, beta, batch_size=100, use_tqdm=False):
     offsets = torch.abs(embeds[:, embedding_size:])
-    radii = torch.abs(embeds[:, -1])
     embeds = embeds[:, :embedding_size]
 
     top1 = 0.
@@ -123,17 +127,7 @@ def compute_ranks(embeds, embedding_size, eval_data, device, batch_size=100, use
         batch_offsets = offsets[batch_data[:, 0]]
         eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
         dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        dists = softplus(dists).mean(dim=2)  # dists = dists.relu().mean(dim=2)
-
-        # batch_embeds = embeds[batch_data[:, 0]]
-        # batch_offsets = radii[batch_data[:, 0]]
-        # eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
-        # dists = eucs - radii[None, :, None] + batch_offsets[:, None, None]
-        # dists = softplus(dists).mean(dim=2)  # dists = dists.relu().mean(dim=2)
-
-        # l2s = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
-        # l2s = torch.linalg.norm(l2s, dim=2, ord=2)
-        # dists[dists == 0] = - 1 / l2s[dists == 0]
+        dists = softplus(dists, beta=beta).mean(dim=2)  # dists = dists.relu().mean(dim=2)
 
 
         # batch_starts = embeds[batch_data[:, 0]] - offsets[batch_data[:, 0]]
