@@ -138,10 +138,7 @@ class ELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        # dst = torch.reshape(torch.linalg.norm(torch.relu(euc - c_offset - d_offset + self.margin), axis=1), [-1, 1])
-
-        # TODO:
-        dst = torch.reshape(torch.linalg.norm(torch.relu(-euc + c_offset + d_offset - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.relu(euc - c_offset - d_offset + self.margin), axis=1), [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 

@@ -6,10 +6,10 @@ from torch.nn.functional import softplus
 np.random.seed(12)
 
 
-class MyELBoxModel(nn.Module):
+class ELSoftmaxBoxModel(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1):
-        super(MyELBoxModel, self).__init__()
+        super(ELSoftmaxBoxModel, self).__init__()
 
         self.margin = margin
         self.classNum = len(class_)
