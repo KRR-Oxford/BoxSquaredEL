@@ -8,7 +8,7 @@ np.random.seed(12)
 
 class MyELBoxModel(nn.Module):
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1):
         super(MyELBoxModel, self).__init__()
 
         self.margin = margin
@@ -18,6 +18,7 @@ class MyELBoxModel(nn.Module):
         self.device = device
         self.reg_norm = 1
         self.inf = 4
+        self.beta = beta
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -45,7 +46,7 @@ class MyELBoxModel(nn.Module):
 
         euc = torch.abs(c1 - d1)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + cr - dr - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + cr - dr - self.margin, beta=self.beta), axis=1), [-1, 1])
 
         return dst + self.reg(c1, cr) + self.reg(d1, dr)
 
@@ -71,8 +72,8 @@ class MyELBoxModel(nn.Module):
         cen2 = e1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + newR - e2 - self.margin), axis=1), [-1, 1]) \
-              + torch.linalg.norm(softplus(startAll - endAll), axis=1)
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + newR - e2 - self.margin, beta=self.beta), axis=1), [-1, 1]) \
+              + torch.linalg.norm(softplus(startAll - endAll, beta=self.beta), axis=1)
 
         return dst + self.reg(c1, c2) + self.reg(d1, d2) + self.reg(e1, e2)
 
@@ -90,7 +91,7 @@ class MyELBoxModel(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(-euc + cr + dr - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(-euc + cr + dr - self.margin, beta=self.beta), axis=1), [-1, 1])
 
         return dst + self.reg(c1, cr) + self.reg(d1, dr)
 
@@ -109,7 +110,7 @@ class MyELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin), axis=1),
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
                             [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
@@ -129,7 +130,7 @@ class MyELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(-euc + c_offset + d_offset - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(softplus(-euc + c_offset + d_offset - self.margin, beta=self.beta), axis=1), [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
@@ -149,14 +150,16 @@ class MyELBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin), axis=1),
+        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
                             [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
     def reg(self, center, offset):
         # return torch.relu(center + offset - 1).mean(axis=1) + torch.relu(-(center - offset)).mean(axis=1)
-        # return torch.relu(-offset).sum(axis=1)
+        # return torch.relu(-offset).mean(dim=1)
+        # return torch.abs(torch.linalg.norm(center, dim=1) - 1) + torch.relu(-offset).mean(dim=1)
+        # return torch.relu(torch.abs(center) - 1).mean(dim=1) + torch.relu(-offset).mean(dim=1)
         return 0
 
     def forward(self, input):
