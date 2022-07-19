@@ -3,6 +3,8 @@ import click as ck
 import numpy as np
 import torch
 import torch.optim as optim
+from torch.optim.lr_scheduler import MultiStepLR
+
 from model.ELBoxModel import ELBoxModel
 from model.ElBallModel import ELBallModel
 from model.ELCubeModel import ELCubeModel
@@ -13,9 +15,10 @@ import logging
 import pandas as pd
 from tqdm import trange
 import wandb
-from evaluate import compute_ranks, compute_accuracy
+from evaluate import compute_ranks, compute_accuracy, evaluate
 
 from utils.utils import get_device
+import sys
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,7 +53,11 @@ logging.basicConfig(level=logging.INFO)
     help='Pandas pkl file with loss history')
 def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    dataset = 'GO'
+    seed = 42
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
+    dataset = 'GALEN'
     embedding_dim = 50
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
@@ -64,22 +71,28 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    model = MyELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0)
+    model = MyELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+                         beta=1)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # scheduler = MultiStepLR(optimizer, milestones=[4000, 7000], gamma=0.1)
+    scheduler = None
     model = model.to(device)
-    train(model, train_data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, val_freq=100)
-    # model.eval()
+    train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
+          num_epochs=2000, val_freq=100)
 
-    # model = model.to(device)
-    # save_model(model, out_classes_file, out_relations_file, classes, relations)
+    print('Computing test scores...')
+    evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, last=True)
 
 
-def train(model, data, val_data, optimizer, out_classes_file, out_relations_file, classes, relations, num_epochs=2000, val_freq=100):
+def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations, num_epochs=2000,
+          val_freq=100):
     model.train()
     wandb.watch(model)
+
     best_top10 = 0
     best_top100 = 0
+    best_mr = sys.maxsize
     best_epoch = 0
 
     for epoch in trange(num_epochs):
@@ -100,18 +113,26 @@ def train(model, data, val_data, optimizer, out_classes_file, out_relations_file
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             wandb.log({'acc': acc})
-            top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device)
+            top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, model.embedding_dim, val_data[:1000],
+                                                                  model.device, model.beta)
             wandb.log({'top10': top10, 'top100': top100, 'mean_rank': mean_rank})
-            if top10 > best_top10:
+            if top100 >= best_top100:
                 best_top10 = top10
+                best_top100 = top100
+                best_mr = mean_rank
                 best_epoch = epoch
                 save_model(model, f'{out_classes_file}_best.pkl', f'{out_relations_file}_best.pkl', classes, relations)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
+
+    wandb.finish()
 
     print(f'Best epoch: {best_epoch}')
+    save_model(model, f'{out_classes_file}_last.pkl', f'{out_relations_file}_last.pkl', classes, relations)
 
 
 def save_model(model, cls_file, rel_file, classes, relations):
