@@ -8,10 +8,11 @@ np.random.seed(12)
 
 class ELBoxModel(nn.Module):
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, disjoint_dist=2):
         super(ELBoxModel, self).__init__()
 
         self.margin = margin
+        self.disjoint_dist = disjoint_dist
         self.classNum = len(class_)
         self.class_ = class_
         self.relationNum = relationNum
@@ -89,7 +90,7 @@ class ELBoxModel(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(relu(-euc + cr + dr - self.margin), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(relu(euc - cr - dr + self.margin), axis=1), [-1, 1])
 
         return dst + self.reg(c1, cr) + self.reg(d1, dr)
 
@@ -155,6 +156,7 @@ class ELBoxModel(nn.Module):
     def reg(self, center, offset):
         # return torch.relu(center + offset - 1).mean(axis=1) + torch.relu(-(center - offset)).mean(axis=1)
         # return torch.relu(-offset).sum(axis=1)
+        # return torch.abs(torch.linalg.norm(center, dim=1) - 1) + torch.relu(-offset).mean(dim=1)
         return 0
 
     def forward(self, input):
@@ -190,13 +192,13 @@ class ELBoxModel(nn.Module):
             rand_index = np.random.choice(len(input['disjoint']), size=batch)
             disJointData = input['disjoint'][rand_index]
             disJointData = disJointData.to(self.device)
-            disJointLoss = self.disJointLoss(disJointData).square().mean()
+            disJointLoss = (self.disjoint_dist - self.disJointLoss(disJointData)).relu().square().mean()
 
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
         negData = negData.to(self.device)
-        negLoss = (self.neg_loss(negData) - 2).square().mean()
+        negLoss = (self.disjoint_dist - self.neg_loss(negData)).relu().square().mean()
 
         totalLoss = [loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
         return totalLoss
