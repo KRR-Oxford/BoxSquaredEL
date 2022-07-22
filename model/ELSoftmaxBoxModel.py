@@ -158,9 +158,9 @@ class ELSoftmaxBoxModel(nn.Module):
     def reg(self, center, offset):
         # return torch.relu(center + offset - 1).mean(axis=1) + torch.relu(-(center - offset)).mean(axis=1)
         # return torch.relu(-offset).mean(dim=1)
-        return torch.abs(torch.linalg.norm(center, dim=1) - 1) + torch.relu(-offset).mean(dim=1)
+        # return torch.abs(torch.linalg.norm(center, dim=1) - 1) + torch.relu(-offset).mean(dim=1)
         # return torch.relu(torch.abs(center) - 1).mean(dim=1) + torch.relu(-offset).mean(dim=1)
-        # return 0
+        return 0
 
     def forward(self, input):
         batch = 512

@@ -55,7 +55,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    dataset = 'ANATOMY'
+    dataset = 'GALEN'
     embedding_dim = 50
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
@@ -70,15 +70,15 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
-    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0, beta=.5, disjoint_dist=5)
+    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0, beta=1, disjoint_dist=2)
 
-    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
-    optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # optimizer = optim.Adam(model.parameters(), lr=5e-3)
     scheduler = MultiStepLR(optimizer, milestones=[3000], gamma=0.1)
     # scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
-          num_epochs=10000, val_freq=100)
+          num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
     evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, last=True)
@@ -112,14 +112,13 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             wandb.log({'acc': acc})
-            top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, model.embedding_dim, val_data[:1000],
-                                                                  model.device, model.beta)
-            wandb.log({'top10': top10, 'top100': top100, 'mean_rank': mean_rank})
-            # if top10 >= best_top10:
-            if mean_rank <= best_mr:
-                best_top10 = top10
-                best_top100 = top100
-                best_mr = mean_rank
+            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.beta)
+            wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks)})
+            if ranking.top100 >= best_top100:
+            # if mean_rank <= best_mr:
+                best_top10 = ranking.top10
+                best_top100 = ranking.top100
+                best_mr = np.mean(ranking.ranks)
                 best_epoch = epoch
                 save_model(model, f'{out_classes_file}_best.pkl', f'{out_relations_file}_best.pkl', classes, relations)
 

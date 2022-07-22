@@ -8,6 +8,7 @@ import math
 from tqdm import trange, tqdm
 from torch.nn.functional import softplus, relu
 
+from RankingResult import RankingResult
 from utils.utils import get_device
 from utils.el_data_loader import load_data, load_valid_data
 
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 def main():
     evaluate('GALEN', embedding_size=50, beta=1)
-    # evaluate('GO', embedding_size=100, beta=1)
+    # evaluate('GO', embedding_size=100, beta=.5)
     # evaluate('ANATOMY', embedding_size=50, beta=.5)
 
 
@@ -34,11 +35,10 @@ def evaluate(dataset, embedding_size, beta, last=False):
     # print(f'#Classes: {nb_classes}, #Relations: {nb_relations}')
 
     embeds_list = cls_df['embeddings'].values
-    # classes = {v: k for k, v in enumerate(cls_df['classes'])}
     # r_embeds_list = rel_df['embeddings'].values
     # relations = {v: k for k, v in enumerate(rel_df['relations'])}
     size = len(embeds_list[0])
-    assert(size == 2 * embedding_size)
+    assert (size == 2 * embedding_size)
     embeds = torch.zeros((nb_classes, size), requires_grad=False).to(device)
     for i, emb in enumerate(embeds_list):
         embeds[i, :] = torch.from_numpy(emb).to(device)
@@ -51,19 +51,17 @@ def evaluate(dataset, embedding_size, beta, last=False):
 
     print('Loading data')
     _, classes, relations = load_data(dataset)
-    # train_file = f'data/{dataset}/{dataset}_train.txt'
     test_file = f'data/{dataset}/{dataset}_test.txt'
     test_data = load_valid_data(test_file, classes, relations)
 
     acc = compute_accuracy(embeds, embedding_size, test_data, device)
-    top1, top10, top100, mean_rank, ranks = compute_ranks(embeds, embedding_size, test_data, device, beta,
-                                                          use_tqdm=True)
+    ranking = compute_ranks(embeds, embedding_size, test_data, device, beta, use_tqdm=True)
 
-    ranks_dict = Counter(ranks.tolist())
+    ranks_dict = Counter(ranking.ranks)
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)
 
-    print(f'{dataset}: acc: {acc:.3f}, top1: {top1:.2f}, top10: {top10:.2f}, '
-          f'top100: {top100:.2f}, mean: {mean_rank:.2f}, median: {torch.median(ranks):.2f}, auc: {rank_auc:.2f}')
+    print(f'{dataset}: acc: {acc:.3f}, top1: {ranking.top1:.2f}, top10: {ranking.top10:.2f}, '
+          f'top100: {ranking.top100:.2f}, mean: {np.mean(ranking.ranks):.2f}, median: {np.median(ranking.ranks):.2f}, auc: {rank_auc:.2f}')
 
 
 def compute_accuracy(embeds, embedding_size, eval_data, device):
@@ -119,26 +117,16 @@ def compute_ranks(embeds, embedding_size, eval_data, device, beta, batch_size=10
         current_batch_size = min(batch_size, n - start)
         batch_data = eval_data[start:start + current_batch_size, :]
 
-        # batch_embeds = embeds[batch_data[:, 0]]
-        # dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
-        # dists = torch.linalg.norm(dists, dim=2, ord=2)
-
         batch_embeds = embeds[batch_data[:, 0]]
-        batch_offsets = offsets[batch_data[:, 0]]
-        eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
-        dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
-        # dists = softplus(dists, beta=beta).mean(dim=2)  # dists = dists.relu().mean(dim=2)
-        dists = torch.linalg.norm(softplus(dists, beta=beta), dim=2)
+        dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
+        dists = torch.linalg.norm(dists, dim=2, ord=1)
 
-
-        # batch_starts = embeds[batch_data[:, 0]] - offsets[batch_data[:, 0]]
-        # starts = embeds - offsets
-        # starts = torch.maximum(batch_starts[:, None, :], torch.tile(starts, (current_batch_size, 1, 1)))
-        # batch_ends = embeds[batch_data[:, 0]] + offsets[batch_data[:, 0]]
-        # ends = embeds + offsets
-        # ends = torch.minimum(batch_ends[:, None, :], torch.tile(ends, (current_batch_size, 1, 1)))
-        # log_inter_vols = torch.log(torch.relu(ends-starts) + 1e-3).sum(dim=2)
-        # dists = -log_inter_vols
+        # batch_embeds = embeds[batch_data[:, 0]]
+        # batch_offsets = offsets[batch_data[:, 0]]
+        # eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
+        # dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
+        # dists = torch.linalg.norm(softplus(dists, beta=beta), dim=2)
+        # dists = torch.linalg.norm(relu(dists), dim=2)
 
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
         batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
@@ -151,8 +139,8 @@ def compute_ranks(embeds, embedding_size, eval_data, device, beta, batch_size=10
     top1 /= n
     top10 /= n
     top100 /= n
-    mean_rank = torch.mean(ranks)
-    return top1, top10, top100, mean_rank, ranks
+
+    return RankingResult(top1, top10, top100, ranks.tolist())
 
 
 def compute_rank_roc(ranks, n_prots):
