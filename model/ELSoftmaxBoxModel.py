@@ -2,13 +2,15 @@ import numpy as np
 import torch.nn as nn
 import torch
 from torch.nn.functional import softplus
+from typing import Literal
 
 np.random.seed(12)
 
 
 class ELSoftmaxBoxModel(nn.Module):
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1, disjoint_dist=2):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1, disjoint_dist=2,
+                 ranking_fn: Literal['softplus', 'dist'] = 'softplus'):
         super(ELSoftmaxBoxModel, self).__init__()
 
         self.margin = margin
@@ -18,6 +20,7 @@ class ELSoftmaxBoxModel(nn.Module):
         self.relationNum = relationNum
         self.device = device
         self.beta = beta
+        self.ranking_fn = ranking_fn
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -109,8 +112,9 @@ class ELSoftmaxBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
-                            [-1, 1])
+        dst = torch.reshape(
+            torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
+            [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
@@ -150,8 +154,9 @@ class ELSoftmaxBoxModel(nn.Module):
         cen2 = d_center
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
-                            [-1, 1])
+        dst = torch.reshape(
+            torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
+            [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 

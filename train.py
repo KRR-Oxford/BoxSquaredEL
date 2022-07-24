@@ -70,7 +70,10 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
-    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0, beta=1, disjoint_dist=2)
+    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+                              beta=1, disjoint_dist=2, ranking_fn='softplus')
+    # model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
     # optimizer = optim.Adam(model.parameters(), lr=5e-3)
@@ -81,10 +84,11 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
           num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
-    evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, last=True)
+    evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
 
 
-def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations, num_epochs=2000,
+def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
+          num_epochs=2000,
           val_freq=100):
     model.train()
     wandb.watch(model)
@@ -112,10 +116,10 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             wandb.log({'acc': acc})
-            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.beta)
+            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn, model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks)})
             if ranking.top100 >= best_top100:
-            # if mean_rank <= best_mr:
+                # if mean_rank <= best_mr:
                 best_top10 = ranking.top10
                 best_top100 = ranking.top100
                 best_mr = np.mean(ranking.ranks)
