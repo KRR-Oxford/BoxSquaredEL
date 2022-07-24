@@ -55,13 +55,13 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    dataset = 'GALEN'
-    embedding_dim = 50
+    dataset = 'GO'
+    embedding_dim = 100
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
     val_file = f'data/{dataset}/{dataset}_valid.txt'
 
-    wandb.init(project=f"el2box-{dataset}", entity="krr")
+    wandb.init(project=f"el2box-{dataset}-softplus-scaling", entity="krr")
 
     device = get_device()
 
@@ -69,16 +69,17 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
-    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
-                              beta=1, disjoint_dist=2, ranking_fn='softplus')
+    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+                       disjoint_dist=2)
+    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
-    # optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scheduler = MultiStepLR(optimizer, milestones=[3000], gamma=0.1)
-    # scheduler = None
+    scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
           num_epochs=5000, val_freq=100)
@@ -119,7 +120,7 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
             ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn, model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks)})
             if ranking.top100 >= best_top100:
-                # if mean_rank <= best_mr:
+            #if np.mean(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10
                 best_top100 = ranking.top100
                 best_mr = np.mean(ranking.ranks)

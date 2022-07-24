@@ -32,6 +32,9 @@ class ELBoxModel(nn.Module):
         self.relationEmbeddingDict.weight.data /= torch.linalg.norm(
             self.relationEmbeddingDict.weight.data, axis=1).reshape(-1, 1)
 
+        self.scalingEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
+        nn.init.uniform_(self.scalingEmbeddingDict.weight, a=0.9, b=1.1)
+
         self.embedding_dim = embedding_dim
 
     # cClass isSubSetof dClass
@@ -100,10 +103,11 @@ class ELBoxModel(nn.Module):
     def nf3Loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         r = self.relationEmbeddingDict(input[:, 1])
+        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 1]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, self.embedding_dim:]) * scaling
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
@@ -119,10 +123,11 @@ class ELBoxModel(nn.Module):
     def neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         r = self.relationEmbeddingDict(input[:, 1])
+        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 1]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, self.embedding_dim:]) * scaling
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
@@ -140,10 +145,11 @@ class ELBoxModel(nn.Module):
     def nf4Loss(self, input):
         c = self.classEmbeddingDict(input[:, 1])
         r = self.relationEmbeddingDict(input[:, 0])
+        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 0]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:])
+        c_offset = torch.abs(c[:, self.embedding_dim:]) / scaling
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
