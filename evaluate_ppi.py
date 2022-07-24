@@ -6,7 +6,7 @@ import logging
 from tqdm import trange
 import numpy as np
 import torch
-from torch.nn.functional import softplus
+from torch.nn.functional import softplus, relu
 
 from sklearn.metrics import roc_curve, auc
 import math
@@ -109,11 +109,16 @@ def main(train_data_file, valid_data_file, test_data_file, cls_embeds_file, rel_
         current_batch_size = min(batch_size, n - start)
         batch_data = eval_data[start:start + current_batch_size, :]
 
-        batch_translated = prot_embeds[batch_data[:, 0]] + r_embeds[batch_data[:, 1]]
-        batch_offsets = prot_offsets[batch_data[:, 0]]
-        eucs = torch.abs(batch_translated[:, None, :] - torch.tile(prot_embeds, (current_batch_size, 1, 1)))
-        dists = eucs - prot_offsets[None, :, :] + batch_offsets[:, None, :]
-        dists = torch.linalg.norm(softplus(dists, beta=3), dim=2)  # TODO: dists.relu()
+        batch_embeds = prot_embeds[batch_data[:, 0]] + r_embeds[batch_data[:, 1]]
+        dists = batch_embeds[:, None, :] - torch.tile(prot_embeds, (current_batch_size, 1, 1))
+        dists = torch.linalg.norm(dists, dim=2, ord=2)
+
+        # batch_translated = prot_embeds[batch_data[:, 0]] + r_embeds[batch_data[:, 1]]
+        # batch_offsets = prot_offsets[batch_data[:, 0]]
+        # eucs = torch.abs(batch_translated[:, None, :] - torch.tile(prot_embeds, (current_batch_size, 1, 1)))
+        # dists = eucs - prot_offsets[None, :, :] + batch_offsets[:, None, :]
+        # # dists = torch.linalg.norm(softplus(dists, beta=1), dim=2)
+        # dists = torch.linalg.norm(relu(dists), dim=2)
 
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
         batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()

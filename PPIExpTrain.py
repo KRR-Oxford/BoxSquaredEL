@@ -4,6 +4,7 @@ import numpy
 import torch.optim as optim
 from model.ELBoxModel import ELBoxModel
 from model.Original import Original
+from model.ELSoftmaxBoxModel import ELSoftmaxBoxModel
 from utils.ppi_data_loader import load_data, load_valid_data
 import logging
 import torch
@@ -70,11 +71,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     train_data, classes, relations = load_data(data_file)
     print(len(relations))
     embedding_dim = 50
-    model = Original(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin1=-0.05)
-
-    #
-    # checkpoint = torch.load('./netPlot.pkl')
-    # model.load_state_dict(checkpoint.state_dict())  # 加载网络权重参数
+    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05)
+    # model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     model = model.to(device)
