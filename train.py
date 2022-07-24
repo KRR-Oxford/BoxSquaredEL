@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 from model.ELBoxModel import ELBoxModel
 from model.ElBallModel import ELBallModel
-from model.ELSoftmaxBoxModel import ELSoftmaxBoxModel
+from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -70,9 +70,9 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1)
-    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
                               beta=1, disjoint_dist=2, ranking_fn='softplus')
-    # model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)

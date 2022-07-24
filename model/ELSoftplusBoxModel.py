@@ -7,11 +7,11 @@ from typing import Literal
 np.random.seed(12)
 
 
-class ELSoftmaxBoxModel(nn.Module):
+class ELSoftplusBoxModel(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1, disjoint_dist=2,
                  ranking_fn: Literal['softplus', 'dist'] = 'softplus'):
-        super(ELSoftmaxBoxModel, self).__init__()
+        super(ELSoftplusBoxModel, self).__init__()
 
         self.margin = margin
         self.disjoint_dist = disjoint_dist

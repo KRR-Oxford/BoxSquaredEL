@@ -5,7 +5,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 
-from model.ELSoftmaxBoxModel import ELSoftmaxBoxModel
+from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.ELBoxModel import ELBoxModel
 from utils.ppi_data_loader import load_data, load_valid_data
 import logging
@@ -67,7 +67,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(data_file)
     val_data = None
     print('Loaded data.')
-    model = ELSoftmaxBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05,
+    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05,
                               beta=10)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-3)  # TODO: 1e-3???
