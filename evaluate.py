@@ -16,9 +16,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    # evaluate('GALEN', embedding_size=200, ranking_fn='dist', beta=1)
-    evaluate('GO', embedding_size=200, ranking_fn='dist', beta=.5)
-    # evaluate('ANATOMY', embedding_size=50, ranking_fn='dist', beta=.5)
+    evaluate('GALEN', embedding_size=200, ranking_fn='l2', beta=1)
+    # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
+    # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
 
 def evaluate(dataset, embedding_size, beta, ranking_fn, last=False):
@@ -118,15 +118,18 @@ def compute_ranks(embeds, embedding_size, eval_data, device, ranking_fn, beta, b
         batch_data = eval_data[start:start + current_batch_size, :]
         batch_embeds = embeds[batch_data[:, 0]]
 
-        if ranking_fn == 'dist':
+        if ranking_fn in ['l1', 'l2']:
             dists = batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1))
-            dists = torch.linalg.norm(dists, dim=2, ord=1)
+            order = 1 if ranking_fn == 'l1' else 2
+            dists = torch.linalg.norm(dists, dim=2, ord=order)
         elif ranking_fn == 'softplus':
             batch_offsets = offsets[batch_data[:, 0]]
             eucs = torch.abs(batch_embeds[:, None, :] - torch.tile(embeds, (current_batch_size, 1, 1)))
             dists = eucs - offsets[None, :, :] + batch_offsets[:, None, :]
             dists = torch.linalg.norm(softplus(dists, beta=beta), dim=2)
             # dists = torch.linalg.norm(relu(dists), dim=2)
+        else:
+            raise ValueError('Illegal argument for ranking_fn')
 
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
         batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()

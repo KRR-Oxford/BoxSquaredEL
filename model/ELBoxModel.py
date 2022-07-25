@@ -10,7 +10,7 @@ np.random.seed(12)
 class ELBoxModel(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, disjoint_dist=2,
-                 ranking_fn: Literal['softplus', 'dist'] = 'dist'):
+                 ranking_fn: Literal['softplus', 'l1', 'l2'] = 'l2'):
         super(ELBoxModel, self).__init__()
 
         self.margin = margin
