@@ -2,7 +2,6 @@ import numpy as np
 import torch.nn as nn
 import torch
 from torch.nn.functional import softplus
-from typing import Literal
 
 np.random.seed(12)
 
@@ -10,7 +9,7 @@ np.random.seed(12)
 class ELSoftplusBoxModel(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1, disjoint_dist=2,
-                 ranking_fn: Literal['softplus', 'dist'] = 'softplus'):
+                 ranking_fn = 'softplus'):
         super(ELSoftplusBoxModel, self).__init__()
 
         self.margin = margin
