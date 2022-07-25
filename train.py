@@ -56,12 +56,12 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     np.random.seed(seed)
 
     dataset = 'GO'
-    embedding_dim = 100
+    embedding_dim = 200
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
     val_file = f'data/{dataset}/{dataset}_valid.txt'
 
-    wandb.init(project=f"el2box-{dataset}-softplus-scaling", entity="krr")
+    wandb.init(project=f"el2box-{dataset}-scaling", entity="krr")
 
     device = get_device()
 
@@ -69,17 +69,17 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
                        disjoint_dist=2)
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = optim.Adam(model.parameters(), lr=5e-3)
     # optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scheduler = MultiStepLR(optimizer, milestones=[3000], gamma=0.1)
-    scheduler = None
+    # scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
           num_epochs=5000, val_freq=100)
@@ -100,13 +100,13 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
     best_epoch = 0
 
     for epoch in trange(num_epochs):
-        # nf3 = data['nf3']
-        # randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
-        # randoms = torch.from_numpy(randoms)
-        # new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
-        # new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
-        # new_neg = torch.cat([new_tails, new_heads], dim=0)
-        # data['nf3_neg'] = new_neg
+        nf3 = data['nf3']
+        randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
+        randoms = torch.from_numpy(randoms)
+        new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
+        new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
+        new_neg = torch.cat([new_tails, new_heads], dim=0)
+        data['nf3_neg'] = new_neg
 
         re = model(data)
         loss = sum(re)

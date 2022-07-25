@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', embedding_size=50, ranking_fn='softplus', beta=1)
-    # evaluate('GO', embedding_size=50, ranking_fn='softplus', beta=.5)
+    # evaluate('GALEN', embedding_size=200, ranking_fn='dist', beta=1)
+    evaluate('GO', embedding_size=200, ranking_fn='dist', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='dist', beta=.5)
 
 

@@ -118,7 +118,7 @@ class ELBoxModel(nn.Module):
 
         dst = torch.reshape(torch.linalg.norm(relu(euc + c_offset - d_offset - self.margin), axis=1), [-1, 1])
 
-        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
+        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset) + self.scaling_reg(scaling)
 
     def neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
@@ -139,7 +139,7 @@ class ELBoxModel(nn.Module):
         dst = torch.reshape(torch.linalg.norm(relu(euc - c_offset - d_offset + self.margin), axis=1), [-1, 1])
         # dst = torch.reshape(torch.linalg.norm(relu(-euc + c_offset + d_offset - self.margin), axis=1), [-1, 1])
 
-        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
+        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset) + self.scaling_reg(scaling)
 
     # relation some cClass isSubSet of dClass
     def nf4Loss(self, input):
@@ -160,13 +160,16 @@ class ELBoxModel(nn.Module):
 
         dst = torch.reshape(torch.linalg.norm(relu(euc + c_offset - d_offset - self.margin), axis=1), [-1, 1])
 
-        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
+        return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset) + self.scaling_reg(scaling)
 
     def reg(self, center, offset):
         # return torch.relu(center + offset - 1).mean(axis=1) + torch.relu(-(center - offset)).mean(axis=1)
         # return torch.relu(-offset).sum(axis=1)
         # return torch.abs(torch.linalg.norm(center, dim=1) - 1) + torch.relu(-offset).mean(dim=1)
         return 0
+
+    def scaling_reg(self, scaling):
+        return torch.abs(scaling - 1).mean(dim=1)
 
     def forward(self, input):
         batch = 512
