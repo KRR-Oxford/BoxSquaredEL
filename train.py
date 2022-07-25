@@ -8,6 +8,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from model.ELBoxModel import ELBoxModel
 from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
+from model.Original import Original
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -51,11 +52,11 @@ logging.basicConfig(level=logging.INFO)
     help='Pandas pkl file with loss history')
 def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    seed = 42
+    seed = 31
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    dataset = 'GO'
+    dataset = 'GALEN'
     embedding_dim = 200
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
@@ -69,8 +70,9 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(val_file, classes, relations)
     print('Loaded data.')
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
-                       disjoint_dist=2)
+    model = Original(device, classes, len(relations), embedding_dim, batch_size, margin1=0.1)
+    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
+    #                    disjoint_dist=2, ranking_fn='l2')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,

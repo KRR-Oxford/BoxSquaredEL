@@ -5,35 +5,6 @@ import torch
 np.random.seed(12)
 
 
-class RelationModel(nn.Module):
-    def __init__(self, embedding_dim):
-        self.embedding_dim = embedding_dim
-        super(RelationModel, self).__init__()
-
-        self.mlp = nn.Sequential(
-            nn.Linear(2 * embedding_dim, embedding_dim),
-            nn.LayerNorm(embedding_dim),
-            nn.Tanh(),
-            nn.Linear(embedding_dim, embedding_dim),
-
-            # nn.LayerNorm(16*embedding_dim),
-            #  nn.Tanh(),
-            #  nn.Linear(16 * embedding_dim,  8*embedding_dim),
-            # nn.LayerNorm(embedding_dim * 8),
-            #  nn.Tanh(),
-            #  nn.Linear(8 * embedding_dim, 2 * embedding_dim),
-            # nn.LayerNorm(embedding_dim * 2),
-            #  nn.Tanh(),
-            #  nn.Linear(2*embedding_dim,  embedding_dim),
-            # nn.LayerNorm(embedding_dim),
-            #  nn.Tanh(),
-        )
-
-    def forward(self, input):
-        # input[:,:50]
-        return input[:, :50]
-
-
 class Original(nn.Module):
     '''
 
@@ -55,6 +26,8 @@ class Original(nn.Module):
         self.device = device
         self.reg_norm = 1
         self.inf = 4
+        self.beta = None
+        self.ranking_fn = 'l2'
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -67,15 +40,6 @@ class Original(nn.Module):
             self.relationEmbeddingDict.weight.data, axis=1).reshape(-1, 1)
 
         self.embedding_dim = embedding_dim
-        self.relationModel = RelationModel(self.embedding_dim)
-        self.tailRelationModel = self.relationModel
-        for m in self.relationModel.modules():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                nn.init.kaiming_normal_(m.weight)
-
-        for m in self.tailRelationModel.modules():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                nn.init.kaiming_normal_(m.weight)
 
     # cClass isSubSetof dClass
 
@@ -101,7 +65,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr - margin, zeros), axis=1), [-1, 1])
         #  print(cr)
 
         return dst
@@ -132,7 +96,7 @@ class Original(nn.Module):
         cen2 = e1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + newR - er + margin, zeros), axis=1), [-1, 1]) \
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + newR - er - margin, zeros), axis=1), [-1, 1]) \
               + torch.linalg.norm(torch.maximum(startAll - endAll, zeros), axis=1)
         return dst
 
@@ -158,7 +122,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr - margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -179,11 +143,11 @@ class Original(nn.Module):
         d1_input = torch.cat((d1_o, r), dim=1)
         d2_input = torch.cat((d2_o, r), dim=1)
 
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
+        c1 = c1_o
+        c2 = c2_o
 
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
+        d1 = d1_o
+        d2 = d2_o
 
         cr = torch.abs(c2)
         dr = torch.abs(d2)
@@ -195,7 +159,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc + cr - dr - margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -216,11 +180,11 @@ class Original(nn.Module):
         d1_input = torch.cat((d1_o, r), dim=1)
         d2_input = torch.cat((d2_o, r), dim=1)
 
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
+        c1 = c1_o
+        c2 = c2_o
 
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
+        d1 = d1_o
+        d2 = d2_o
 
         cr = torch.abs(c2)
         dr = torch.abs(d2)
@@ -232,7 +196,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr - margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -256,11 +220,11 @@ class Original(nn.Module):
         d1_input = torch.cat((d1_o, r), dim=1)
         d2_input = torch.cat((d2_o, r), dim=1)
 
-        c1 = self.relationModel(c1_input)
-        c2 = torch.abs(self.relationModel(c2_input))
+        c1 = c1_o
+        c2 = c2_o
 
-        d1 = self.tailRelationModel(d1_input)
-        d2 = torch.abs(self.tailRelationModel(d2_input))
+        d1 = d1_o
+        d2 = d2_o
 
         cr = torch.abs(c2)
         dr = torch.abs(d2)
@@ -272,7 +236,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr - margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -311,12 +275,15 @@ class Original(nn.Module):
         loss4 = mseloss(loss4, torch.zeros(loss4.shape, requires_grad=False).to(self.device))
 
         # disJoint
-        rand_index = np.random.choice(len(input['disjoint']), size=batch)
-        disJointData = input['disjoint'][rand_index]
-        disJointData = disJointData.to(self.device)
-        disJointLoss = self.disJointLoss(disJointData)
-        mseloss = nn.MSELoss(reduce=True)
-        disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+        if len(input['disjoint']) == 0:
+            disJointLoss = 0
+        else:
+            rand_index = np.random.choice(len(input['disjoint']), size=batch)
+            disJointData = input['disjoint'][rand_index]
+            disJointData = disJointData.to(self.device)
+            disJointLoss = self.disJointLoss(disJointData)
+            mseloss = nn.MSELoss(reduce=True)
+            disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
@@ -327,6 +294,6 @@ class Original(nn.Module):
         negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
 
         totalLoss = [
-            loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]  # +negLoss #loss4 +disJointLoss+loss1 + loss2 +  negLoss#+ disJointLoss+ topLoss+ loss3 + loss4 +  negLoss
+            loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
 
         return (totalLoss)
