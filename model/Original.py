@@ -27,7 +27,7 @@ class Original(nn.Module):
         self.reg_norm = 1
         self.inf = 4
         self.beta = None
-        self.ranking_fn = 'l2'
+        self.ranking_fn = 'l1'
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -122,7 +122,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr - margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -283,7 +283,7 @@ class Original(nn.Module):
             disJointData = disJointData.to(self.device)
             disJointLoss = self.disJointLoss(disJointData)
             mseloss = nn.MSELoss(reduce=True)
-            disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+            disJointLoss = mseloss(disJointLoss, torch.ones(disJointLoss.shape, requires_grad=False).to(self.device) * 2)
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
