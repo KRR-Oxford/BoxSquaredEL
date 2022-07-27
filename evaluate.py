@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', embedding_size=100, ranking_fn='l2', beta=1)
+    evaluate('GALEN', embedding_size=200, ranking_fn='l2', beta=1)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 

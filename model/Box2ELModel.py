@@ -178,7 +178,7 @@ class Box2ELModel(nn.Module):
         negData = negData.to(self.device)
         negLoss1, negLoss2 = self.neg_loss(negData)
         negLoss = (self.disjoint_dist - negLoss1).square().mean() + (self.disjoint_dist - negLoss2).square().mean()
-        negLoss /= 2
+        # negLoss /= 2
 
         totalLoss = [loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
         return totalLoss
