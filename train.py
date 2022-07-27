@@ -58,7 +58,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    embedding_dim = 50
+    embedding_dim = 100
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
     val_file = f'data/{dataset}/{dataset}_valid.txt'
@@ -81,10 +81,10 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     model = Box2ELModel(device, classes, len(relations), embedding_dim, batch_size, margin=0.1, disjoint_dist=2,
                         ranking_fn='l2')
 
+    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scheduler = MultiStepLR(optimizer, milestones=[3000], gamma=0.1)
-    # scheduler = None
+    scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
           num_epochs=5000, val_freq=100)
@@ -124,7 +124,8 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
             wandb.log({'acc': acc})
             ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn,
                                     model.beta)
-            wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks)})
+            wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
+                       'median_rank': np.median(ranking.ranks)})
             if ranking.top100 >= best_top100:
                 # if np.mean(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10
