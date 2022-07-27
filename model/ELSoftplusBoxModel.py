@@ -8,8 +8,8 @@ np.random.seed(12)
 
 class ELSoftplusBoxModel(nn.Module):
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, beta=1, disjoint_dist=2,
-                 ranking_fn = 'softplus'):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, disjoint_dist=2, beta=1,
+                 ranking_fn='softplus'):
         super(ELSoftplusBoxModel, self).__init__()
 
         self.margin = margin
@@ -30,9 +30,6 @@ class ELSoftplusBoxModel(nn.Module):
         nn.init.uniform_(self.relationEmbeddingDict.weight, a=-1, b=1)
         self.relationEmbeddingDict.weight.data /= torch.linalg.norm(
             self.relationEmbeddingDict.weight.data, axis=1).reshape(-1, 1)
-
-        self.scalingEmbeddingDict = nn.Embedding(relationNum, embedding_dim)
-        nn.init.uniform_(self.scalingEmbeddingDict.weight, a=0.9, b=1.1)
 
         self.embedding_dim = embedding_dim
 
@@ -102,11 +99,10 @@ class ELSoftplusBoxModel(nn.Module):
     def nf3Loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         r = self.relationEmbeddingDict(input[:, 1])
-        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 1]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:]) * scaling
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
@@ -116,19 +112,17 @@ class ELSoftplusBoxModel(nn.Module):
         euc = torch.abs(cen1 - cen2)
 
         dst = torch.reshape(
-            torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
-            [-1, 1])
+            torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),[-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
     def neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         r = self.relationEmbeddingDict(input[:, 1])
-        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 1]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:]) * scaling
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
@@ -146,11 +140,10 @@ class ELSoftplusBoxModel(nn.Module):
     def nf4Loss(self, input):
         c = self.classEmbeddingDict(input[:, 1])
         r = self.relationEmbeddingDict(input[:, 0])
-        scaling = torch.abs(self.scalingEmbeddingDict(input[:, 0]))
         d = self.classEmbeddingDict(input[:, 2])
 
         c_center = c[:, :self.embedding_dim]
-        c_offset = torch.abs(c[:, self.embedding_dim:]) / scaling
+        c_offset = torch.abs(c[:, self.embedding_dim:])
 
         d_center = d[:, :self.embedding_dim]
         d_offset = torch.abs(d[:, self.embedding_dim:])
@@ -160,8 +153,7 @@ class ELSoftplusBoxModel(nn.Module):
         euc = torch.abs(cen1 - cen2)
 
         dst = torch.reshape(
-            torch.linalg.norm(softplus(euc + c_offset - d_offset - self.margin, beta=self.beta), axis=1),
-            [-1, 1])
+            torch.linalg.norm(softplus(euc - c_offset - d_offset - self.margin, beta=self.beta), axis=1), [-1, 1])
 
         return dst + self.reg(c_center, c_offset) + self.reg(d_center, d_offset)
 
@@ -211,7 +203,7 @@ class ELSoftplusBoxModel(nn.Module):
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
         negData = negData.to(self.device)
-        negLoss = (self.disjoint_dist - self.neg_loss(negData)).relu().square().mean()
+        negLoss = (self.disjoint_dist - self.neg_loss(negData)).square().mean()
 
         totalLoss = [loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
         return totalLoss
