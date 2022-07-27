@@ -73,8 +73,8 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # model = Original(device, classes, len(relations), embedding_dim, batch_size, margin1=0.1)
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
     #                    disjoint_dist=2, ranking_fn='l1')
-    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
-                              beta=5, disjoint_dist=2, ranking_fn='softplus')
+    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+                              beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
 
