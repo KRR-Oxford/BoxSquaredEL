@@ -9,6 +9,7 @@ from model.ELBoxModel import ELBoxModel
 from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
+from model.Box2ELModel import Box2ELModel
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -57,12 +58,12 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    embedding_dim = 200
+    embedding_dim = 50
     out_classes_file = f'data/{dataset}/classELEmbed'
     out_relations_file = f'data/{dataset}/relationELEmbed'
     val_file = f'data/{dataset}/{dataset}_valid.txt'
 
-    wandb.init(project=f"el2box-{dataset}-scaling", entity="krr")
+    wandb.init(project=f"el2box-{dataset}-boxe", entity="krr")
 
     device = get_device()
 
@@ -73,10 +74,12 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # model = Original(device, classes, len(relations), embedding_dim, batch_size, margin1=0.1)
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
     #                    disjoint_dist=2, ranking_fn='l1')
-    model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
-                              beta=1, disjoint_dist=2, ranking_fn='softplus')
+    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
+    model = Box2ELModel(device, classes, len(relations), embedding_dim, batch_size, margin=0.1, disjoint_dist=2,
+                        ranking_fn='l2')
 
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
     # optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -119,10 +122,11 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             wandb.log({'acc': acc})
-            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn, model.beta)
+            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn,
+                                    model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks)})
             if ranking.top100 >= best_top100:
-            #if np.mean(ranking.ranks) <= best_mr:
+                # if np.mean(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10
                 best_top100 = ranking.top100
                 best_mr = np.mean(ranking.ranks)
@@ -147,10 +151,10 @@ def save_model(model, cls_file, rel_file, classes, relations):
          'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
     df.to_pickle(cls_file)
 
-    df = pd.DataFrame(
-        {'relations': list(relations.keys()),
-         'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    df.to_pickle(rel_file)
+    # df = pd.DataFrame(
+    #     {'relations': list(relations.keys()),
+    #      'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    # df.to_pickle(rel_file)
 
 
 if __name__ == '__main__':
