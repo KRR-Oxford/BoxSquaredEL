@@ -7,11 +7,11 @@ from boxes import Boxes
 np.random.seed(12)
 
 
-class Box2ELModel(nn.Module):
+class ELBox2(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, disjoint_dist=2,
                  ranking_fn='l2'):
-        super(Box2ELModel, self).__init__()
+        super(ELBox2, self).__init__()
 
         self.margin = margin
         self.disjoint_dist = disjoint_dist

@@ -9,7 +9,7 @@ from model.ELBoxModel import ELBoxModel
 from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
-from model.Box2ELModel import Box2ELModel
+from model.ELBox2 import ELBox2
 from utils.el_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
@@ -78,8 +78,8 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = Box2ELModel(device, classes, len(relations), embedding_dim, batch_size, margin=0.05, disjoint_dist=2,
-                        ranking_fn='l2')
+    model = ELBox2(device, classes, len(relations), embedding_dim, batch_size, margin=0.05, disjoint_dist=2,
+                   ranking_fn='l2')
 
     # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
