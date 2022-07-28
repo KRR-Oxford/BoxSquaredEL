@@ -116,7 +116,7 @@ class ELBoxModel(nn.Module):
         d_boxes = self.get_boxes(d)
 
         euc = torch.abs(c_boxes.centers - r - d_boxes.centers)
-        dst = torch.reshape(torch.linalg.norm(relu(euc - c_boxes.offsets - d_boxes.offsets - self.margin), axis=1),
+        dst = torch.reshape(torch.linalg.norm(relu(euc + c_boxes.offsets - d_boxes.offsets - self.margin), axis=1),
                             [-1, 1])
         return dst
 
