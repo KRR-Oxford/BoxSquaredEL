@@ -10,7 +10,7 @@ np.random.seed(12)
 class ELBox2(nn.Module):
 
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
-                 ranking_fn='l2'):
+                 ranking_fn='l2', reg_factor=0.1):
         super(ELBox2, self).__init__()
 
         self.margin = margin
@@ -22,6 +22,7 @@ class ELBox2(nn.Module):
         self.beta = None
         self.ranking_fn = ranking_fn
         self.embedding_dim = embedding_dim
+        self.reg_factor = reg_factor
 
         self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
         self.bumps = self.init_embeddings(self.class_num, embedding_dim)
@@ -161,7 +162,7 @@ class ELBox2(nn.Module):
         neg_loss1, neg_loss2 = self.neg_loss(neg_data)
         neg_loss = (self.disjoint_dist - neg_loss1).square().mean() + (self.disjoint_dist - neg_loss2).square().mean()
 
-        reg_loss = 0.1 * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
+        reg_loss = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
 
         total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss]
         return total_loss

@@ -79,7 +79,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
     model = ELBox2(device, classes, len(relations), embedding_dim, batch_size, margin=0.05, disjoint_dist=2,
-                   ranking_fn='l2')
+                   ranking_fn='l2', reg_factor=0.1)
 
     # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
