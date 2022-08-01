@@ -115,17 +115,16 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
 
         re = model(data)
         loss = sum(re)
-        wandb.log({'loss': loss})
         if epoch % 1000 == 0:
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0:
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
-            wandb.log({'acc': acc})
+            wandb.log({'acc': acc}, commit=False)
             ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn,
                                     model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
-                       'median_rank': np.median(ranking.ranks)})
+                       'median_rank': np.median(ranking.ranks)}, commit=False)
             if ranking.top100 >= best_top100:
                 # if np.mean(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10
@@ -133,6 +132,7 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
                 best_mr = np.mean(ranking.ranks)
                 best_epoch = epoch
                 save_model(model, f'{out_classes_file}_best.pkl', f'{out_relations_file}_best.pkl', classes, relations)
+        wandb.log({'loss': loss})
 
         optimizer.zero_grad()
         loss.backward()
