@@ -87,7 +87,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     # scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
-          num_epochs=10000, val_freq=100)
+          num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
     evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)

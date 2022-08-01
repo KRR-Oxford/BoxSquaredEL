@@ -161,5 +161,7 @@ class ELBox2(nn.Module):
         neg_loss1, neg_loss2 = self.neg_loss(neg_data)
         neg_loss = (self.disjoint_dist - neg_loss1).square().mean() + (self.disjoint_dist - neg_loss2).square().mean()
 
-        total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss]
+        reg_loss = 0.1 * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
+
+        total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss]
         return total_loss
