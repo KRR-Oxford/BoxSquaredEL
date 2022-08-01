@@ -10,7 +10,7 @@ np.random.seed(12)
 class ELBox2(nn.Module):
 
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
-                 ranking_fn='l2', reg_factor=0.1):
+                 ranking_fn='l2', reg_factor=0.1, loss='mse'):
         super(ELBox2, self).__init__()
 
         self.margin = margin
@@ -23,6 +23,7 @@ class ELBox2(nn.Module):
         self.ranking_fn = ranking_fn
         self.embedding_dim = embedding_dim
         self.reg_factor = reg_factor
+        self.loss = loss
 
         self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
         self.bumps = self.init_embeddings(self.class_num, embedding_dim)
@@ -123,29 +124,46 @@ class ELBox2(nn.Module):
 
     def forward(self, input):
         batch = 512
+        criterion = torch.nn.BCEWithLogitsLoss()
 
         rand_index = np.random.choice(len(input['nf1']), size=batch)
         nf1_data = input['nf1'][rand_index]
         nf1_data = nf1_data.to(self.device)
-        loss1 = self.nf1_loss(nf1_data).square().mean()
+        loss1 = self.nf1_loss(nf1_data)
+        if self.loss == 'mse':
+            loss1 = loss1.square().mean()
+        elif self.loss == 'bce':
+            loss1 = criterion(-loss1, torch.ones_like(loss1))
 
         # nf2
         rand_index = np.random.choice(len(input['nf2']), size=batch)
         nf2_data = input['nf2'][rand_index]
         nf2_data = nf2_data.to(self.device)
-        loss2 = self.nf2_loss(nf2_data).square().mean()
+        loss2 = self.nf2_loss(nf2_data)
+        if self.loss == 'mse':
+            loss2 = loss2.square().mean()
+        elif self.loss == 'bce':
+            loss2 = criterion(-loss2, torch.ones_like(loss2))
 
         # nf3
         rand_index = np.random.choice(len(input['nf3']), size=batch)
         nf3_data = input['nf3'][rand_index]
         nf3_data = nf3_data.to(self.device)
-        loss3 = self.nf3_loss(nf3_data).square().mean()
+        loss3 = self.nf3_loss(nf3_data)
+        if self.loss == 'mse':
+            loss3 = loss3.square().mean()
+        elif self.loss == 'bce':
+            loss3 = criterion(-loss3, torch.ones_like(loss3))
 
         # nf4
         rand_index = np.random.choice(len(input['nf4']), size=batch)
         nf4_data = input['nf4'][rand_index]
         nf4_data = nf4_data.to(self.device)
-        loss4 = self.nf4_loss(nf4_data).square().mean()
+        loss4 = self.nf4_loss(nf4_data)
+        if self.loss == 'mse':
+            loss4 = loss4.square().mean()
+        elif self.loss == 'bce':
+            loss4 = criterion(-loss4, torch.ones_like(loss4))
 
         # disJoint
         if len(input['disjoint']) == 0:
@@ -154,13 +172,22 @@ class ELBox2(nn.Module):
             rand_index = np.random.choice(len(input['disjoint']), size=batch)
             disjoint_data = input['disjoint'][rand_index]
             disjoint_data = disjoint_data.to(self.device)
-            disjoint_loss = (self.disjoint_dist - self.nf2_disjoint_loss(disjoint_data)).relu().square().mean()
+            disjoint_loss = self.nf2_disjoint_loss(disjoint_data)
+            if self.loss == 'mse':
+                disjoint_loss = (self.disjoint_dist - disjoint_loss).relu().square().mean()
+            elif self.loss == 'bce':
+                disjoint_loss = criterion(-disjoint_loss, torch.zeros_like(disjoint_loss))
 
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         neg_data = input['nf3_neg'][rand_index]
         neg_data = neg_data.to(self.device)
         neg_loss1, neg_loss2 = self.neg_loss(neg_data)
-        neg_loss = (self.disjoint_dist - neg_loss1).square().mean() + (self.disjoint_dist - neg_loss2).square().mean()
+        if self.loss == 'mse':
+            neg_loss = (self.disjoint_dist - neg_loss1).square().mean() + \
+                       (self.disjoint_dist - neg_loss2).square().mean()
+        elif self.loss == 'bce':
+            neg_loss = criterion(-neg_loss1, torch.zeros_like(neg_loss1)) + \
+                       criterion(-neg_loss2, torch.zeros_like(neg_loss2))
 
         reg_loss = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
 
