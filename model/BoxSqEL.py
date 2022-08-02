@@ -7,11 +7,11 @@ from boxes import Boxes
 np.random.seed(12)
 
 
-class ELBox2(nn.Module):
+class BoxSqEL(nn.Module):
 
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
                  ranking_fn='l2', reg_factor=0.1, loss='mse'):
-        super(ELBox2, self).__init__()
+        super(BoxSqEL, self).__init__()
 
         self.margin = margin
         self.disjoint_dist = disjoint_dist
