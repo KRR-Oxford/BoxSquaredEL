@@ -60,7 +60,7 @@ def main():
           num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
-    evaluate(dataset, embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
+    evaluate(dataset, 'EmELpp', embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
 
 
 def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,

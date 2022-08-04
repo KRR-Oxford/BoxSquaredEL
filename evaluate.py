@@ -10,7 +10,7 @@ from torch.nn.functional import softplus, relu
 
 from RankingResult import RankingResult
 from utils.utils import get_device
-from utils.emelpp_data_loader import load_data, load_valid_data
+from utils.emelpp_data_loader import load_data, load_test_data
 
 logging.basicConfig(level=logging.INFO)
 
