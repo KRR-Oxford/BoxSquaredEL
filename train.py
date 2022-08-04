@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import click as ck
 import numpy as np
 import torch
 import torch.optim as optim
@@ -10,7 +9,7 @@ from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
 from model.BoxSqEL import BoxSqEL
-from utils.el_data_loader import load_data, load_valid_data
+from utils.emelpp_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
 from tqdm import trange
@@ -23,45 +22,16 @@ import sys
 logging.basicConfig(level=logging.INFO)
 
 
-@ck.command()
-@ck.option(
-    '--batch-size', '-bs', default=512,
-    help='Batch size')
-@ck.option(
-    '--epochs', '-e', default=1000,
-    help='Training epochs')
-@ck.option(
-    '--device', '-d', default='gpu:0',
-    help='GPU Device ID')
-@ck.option(
-    '--embedding-size', '-es', default=50,
-    help='Embeddings size')
-@ck.option(
-    '--reg-norm', '-rn', default=1,
-    help='Regularization norm')
-@ck.option(
-    '--margin', '-m', default=-0.1,
-    help='Loss margin')
-@ck.option(
-    '--learning-rate', '-lr', default=0.01,
-    help='Learning rate')
-@ck.option(
-    '--params-array-index', '-pai', default=-1,
-    help='Params array index')
-@ck.option(
-    '--loss-history-file', '-lhf', default='data/loss_history.csv',
-    help='Pandas pkl file with loss history')
-def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
-         learning_rate, params_array_index, loss_history_file):
+def main():
     seed = 42
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     dataset = 'GALEN'
+    task = 'EmELpp'
     embedding_dim = 200
-    out_classes_file = f'data/{dataset}/classELEmbed'
-    out_relations_file = f'data/{dataset}/relationELEmbed'
-    val_file = f'data/{dataset}/{dataset}_valid.txt'
+    out_classes_file = f'data/{dataset}/{task}/class_embed'
+    out_relations_file = f'data/{dataset}/{task}/relation_embed'
 
     wandb.init(project=f"el2box-{dataset}-boxe", entity="krr")
 
@@ -69,7 +39,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
 
     # training procedure
     train_data, classes, relations = load_data(dataset)
-    val_data = load_valid_data(val_file, classes, relations)
+    val_data = load_valid_data(dataset, classes)
     print('Loaded data.')
     # model = Original(device, classes, len(relations), embedding_dim, batch_size, margin1=0.1)
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
@@ -78,7 +48,7 @@ def main(batch_size, epochs, device, embedding_size, reg_norm, margin,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch_size, margin=0.05, disjoint_dist=2,
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
                     ranking_fn='l2', reg_factor=0.1)
 
     # optimizer = optim.Adam(model.parameters(), lr=1e-2)

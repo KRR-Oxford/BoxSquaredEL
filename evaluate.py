@@ -10,20 +10,20 @@ from torch.nn.functional import softplus, relu
 
 from RankingResult import RankingResult
 from utils.utils import get_device
-from utils.el_data_loader import load_data, load_valid_data
+from utils.emelpp_data_loader import load_data, load_valid_data
 
 logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', embedding_size=200, ranking_fn='l2', beta=1)
+    evaluate('GALEN', 'EmELpp', embedding_size=200, ranking_fn='l2', beta=1)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
 
-def evaluate(dataset, embedding_size, beta, ranking_fn, last=False):
+def evaluate(dataset, task, embedding_size, beta, ranking_fn, last=False):
     which_model = 'last' if last else 'best'
-    cls_embeds_file = f'data/{dataset}/classELEmbed_{which_model}.pkl'
+    cls_embeds_file = f'data/{dataset}/{task}/class_embed_{which_model}.pkl'
     # rel_embeds_file = f'data/{dataset}/relationELEmbed.pkl'
 
     device = get_device()
@@ -51,8 +51,7 @@ def evaluate(dataset, embedding_size, beta, ranking_fn, last=False):
 
     print('Loading data')
     _, classes, relations = load_data(dataset)
-    test_file = f'data/{dataset}/{dataset}_test.txt'
-    test_data = load_valid_data(test_file, classes, relations)
+    test_data = load_test_data(dataset, classes)
 
     acc = compute_accuracy(embeds, embedding_size, test_data, device)
     ranking = compute_ranks(embeds, embedding_size, test_data, device, ranking_fn, beta, use_tqdm=True)
@@ -61,7 +60,8 @@ def evaluate(dataset, embedding_size, beta, ranking_fn, last=False):
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)
 
     print(f'{dataset}: acc: {acc:.3f}, top1: {ranking.top1:.2f}, top10: {ranking.top10:.2f}, '
-          f'top100: {ranking.top100:.2f}, mean: {np.mean(ranking.ranks):.2f}, median: {np.median(ranking.ranks):.2f}, auc: {rank_auc:.2f}')
+          f'top100: {ranking.top100:.2f}, mean: {np.mean(ranking.ranks):.2f}, median: {np.median(ranking.ranks):.2f}, '
+          f'auc: {rank_auc:.2f}')
 
 
 def compute_accuracy(embeds, embedding_size, eval_data, device):
@@ -71,8 +71,8 @@ def compute_accuracy(embeds, embedding_size, eval_data, device):
 
     c_embeds = embeds[eval_data[:, 0]]
     c_offsets = offsets[eval_data[:, 0]]
-    d_embeds = embeds[eval_data[:, 2]]
-    d_offsets = offsets[eval_data[:, 2]]
+    d_embeds = embeds[eval_data[:, 1]]
+    d_offsets = offsets[eval_data[:, 1]]
 
     euc = torch.abs(c_embeds - d_embeds)
     results = euc + c_offsets - d_offsets
@@ -84,7 +84,7 @@ def compute_accuracy2(embeds, embedding_size, eval_data, device):
     embeds = embeds[:, :embedding_size]
 
     acc = 0
-    for (c, r, d) in eval_data:
+    for (c, d) in eval_data:
         c_min = embeds[c] - offsets[c]
         c_max = embeds[c] + offsets[c]
         d_min = embeds[d] - offsets[d]
@@ -108,8 +108,6 @@ def compute_ranks(embeds, embedding_size, eval_data, device, ranking_fn, beta, b
 
     num_batches = math.ceil(n / batch_size)
     eval_data = torch.tensor(eval_data, requires_grad=False).long().to(device)
-    r = eval_data[0, 1]
-    assert ((eval_data[:, 1] == r).sum() == n)  # assume we use the same r everywhere
 
     range_fun = trange if use_tqdm else range
     for i in range_fun(num_batches):
@@ -132,7 +130,7 @@ def compute_ranks(embeds, embedding_size, eval_data, device, ranking_fn, beta, b
             raise ValueError('Illegal argument for ranking_fn')
 
         index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
-        batch_ranks = torch.take_along_dim(index, batch_data[:, 2].reshape(-1, 1), dim=1).flatten()
+        batch_ranks = torch.take_along_dim(index, batch_data[:, 1].reshape(-1, 1), dim=1).flatten()
 
         top1 += (batch_ranks <= 1).sum()
         top10 += (batch_ranks <= 10).sum()

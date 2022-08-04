@@ -8,30 +8,29 @@ np.random.seed(100)
 device = get_device()
 
 
+def get_file_start(dataset):
+    return f'data/{dataset}/EmELpp/{dataset}'
+
+
+def load_valid_data(dataset, classes):
+    return load_valid_or_test_data(dataset, '_valid.txt', classes)
+
+
+def load_test_data(dataset, classes):
+    return load_valid_or_test_data(dataset, '_test.txt', classes)
+
+
 @memory.cache
-def load_valid_data(valid_data_file, classes, relations):
+def load_valid_or_test_data(dataset, suffix, classes):
     data = []
-    rel = f'SubClassOf'
-    with open(valid_data_file, 'r') as f:
+    with open(get_file_start(dataset) + suffix, 'r') as f:
         for line in f:
             it = line.strip().split()
             id1 = it[0]
             id2 = it[1]
-            if id1 not in classes or id2 not in classes or rel not in relations:
+            if id1 not in classes or id2 not in classes:
                 continue
-            data.append((classes[id1], relations[rel], classes[id2]))
-    return data
-
-
-def load_eval_data(data_file):
-    data = []
-    rel = f'SubClassOf'
-    with open(data_file, 'r') as f:
-        for line in f:
-            it = line.strip().split()
-            id1 = it[0]
-            id2 = it[1]
-            data.append((id1, id2))
+            data.append((classes[id1], classes[id2]))
     return data
 
 
@@ -51,9 +50,9 @@ def load_cls(train_data_file):
 
 
 def get_all_sub_cls(dataset):
-    train_file = f"data/{dataset}/{dataset}_train.txt"
-    va_file = f"data/{dataset}/{dataset}_valid.txt"
-    test_file = f"data/{dataset}/{dataset}_test.txt"
+    train_file = get_file_start(dataset) + "_train.txt"
+    va_file = get_file_start(dataset) + "_valid.txt"
+    test_file = get_file_start(dataset) + "_test.txt"
     train_sub_cls, train_samples = load_cls(train_file)
     valid_sub_cls, valid_samples = load_cls(va_file)
     test_sub_cls, test_samples = load_cls(test_file)
@@ -64,7 +63,7 @@ def get_all_sub_cls(dataset):
 
 @memory.cache
 def load_data(dataset):
-    filename = f"data/{dataset}/{dataset}_latest_norm_mod.owl"
+    filename = get_file_start(dataset) + '_latest_norm_mod.owl'
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}

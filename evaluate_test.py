@@ -8,7 +8,7 @@ import math
 from tqdm import trange
 
 from utils.utils import get_device
-from utils.el_data_loader import load_data, load_valid_data
+from utils.emelpp_data_loader import load_data, load_valid_data
 
 logging.basicConfig(level=logging.INFO)
 
