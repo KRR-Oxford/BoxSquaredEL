@@ -10,13 +10,13 @@ from torch.nn.functional import softplus, relu
 
 from RankingResult import RankingResult
 from utils.utils import get_device
-from utils.emelpp_data_loader import load_data, load_test_data
+from utils.inferences_data_loader import load_data, load_inferences_data
 
 logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'EmELpp', embedding_size=200, ranking_fn='l2', beta=1)
+    evaluate('GALEN', 'inferences', embedding_size=200, ranking_fn='l2', beta=1, last=True)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
@@ -51,7 +51,7 @@ def evaluate(dataset, task, embedding_size, beta, ranking_fn, last=False):
 
     print('Loading data')
     _, classes, relations = load_data(dataset)
-    test_data = load_test_data(dataset, classes)
+    test_data = load_inferences_data(dataset, classes)
 
     acc = compute_accuracy(embeds, embedding_size, test_data, device)
     ranking = compute_ranks(embeds, embedding_size, test_data, device, ranking_fn, beta, use_tqdm=True)

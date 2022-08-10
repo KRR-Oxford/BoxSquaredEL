@@ -9,7 +9,7 @@ from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
 from model.BoxSqEL import BoxSqEL
-from utils.emelpp_data_loader import load_data, load_valid_data
+from utils.inferences_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
 from tqdm import trange
@@ -28,28 +28,29 @@ def main():
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    task = 'EmELpp'
+    task = 'inferences'
     embedding_dim = 200
     out_classes_file = f'data/{dataset}/{task}/class_embed'
     out_relations_file = f'data/{dataset}/{task}/relation_embed'
 
-    wandb.init(project=f"el2box-{dataset}-boxe", entity="krr")
+    wandb.init(project=f"{dataset}-{task}", entity="krr")
 
     device = get_device()
 
     # training procedure
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(dataset, classes)
+    # val_data = None
     print('Loaded data.')
-    # model = Original(device, classes, len(relations), embedding_dim, batch_size, margin1=0.1)
-    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.1,
-    #                    disjoint_dist=2, ranking_fn='l1')
-    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
+    # model = Original(device, classes, len(relations), embedding_dim, batch=512, margin1=0.1, disjoint_dist=1)
+    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
+    #                    disjoint_dist=1, ranking_fn='l2')
+    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
-                    ranking_fn='l2', reg_factor=0.1)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=1,
+                    ranking_fn='l2', reg_factor=0)
 
     # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
@@ -60,7 +61,7 @@ def main():
           num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
-    evaluate(dataset, 'EmELpp', embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
+    evaluate(dataset, task, embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
 
 
 def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
@@ -87,7 +88,7 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
         loss = sum(re)
         if epoch % 1000 == 0:
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
-        if epoch % val_freq == 0:
+        if epoch % val_freq == 0 and val_data is not None:
             embeds = model.classEmbeddingDict.weight.clone().detach()
             acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             wandb.log({'acc': acc}, commit=False)

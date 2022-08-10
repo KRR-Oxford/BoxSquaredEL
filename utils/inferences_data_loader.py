@@ -1,9 +1,12 @@
 import numpy as np
 import torch
+import random
+import json
 
 from utils.utils import get_device, memory
 
 np.random.seed(100)
+random.seed(100)
 
 device = get_device()
 
@@ -12,19 +15,16 @@ def get_file_dir(dataset):
     return f'data/{dataset}/inferences/'
 
 
-@memory.cache
+def load_valid_data(dataset, classes):
+    with open(get_file_dir(dataset) + 'val.json', 'r') as f:
+        data = json.load(f)
+    return [(classes[tup[0]], classes[tup[1]]) for tup in data]
+
+
 def load_inferences_data(dataset, classes):
-    data = []
-    with open(get_file_dir(dataset) + 'inferences.owl', 'r') as f:
-        for line in f:
-            if not line.startswith('SubClassOf'):
-                continue
-            line = line.strip().replace('SubClassOf(', '').replace(')', '')
-            class1, class2 = line.split(' ')
-            if class1 not in classes or class2 not in classes:
-                continue
-            data.append((classes[class1], classes[class2]))
-    return data
+    with open(get_file_dir(dataset) + 'inferences.json', 'r') as f:
+        data = json.load(f)
+    return [(classes[tup[0]], classes[tup[1]]) for tup in data]
 
 
 @memory.cache

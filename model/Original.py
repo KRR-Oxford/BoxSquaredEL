@@ -15,10 +15,11 @@ class Original(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0, disjoint_dist=2):
         super(Original, self).__init__()
 
         self.margin1 = margin1
+        self.disjoint_dist = disjoint_dist
         self.margin = 0
         self.classNum = len(class_)
         self.class_ = class_
@@ -291,7 +292,7 @@ class Original(nn.Module):
         negLoss = self.neg_loss(negData)
 
         mseloss = nn.MSELoss(reduce=True)
-        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
+        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * self.disjoint_dist)
 
         totalLoss = [
             loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]

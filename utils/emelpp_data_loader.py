@@ -20,6 +20,10 @@ def load_test_data(dataset, classes):
     return load_valid_or_test_data(dataset, '_test.txt', classes)
 
 
+def load_inferences_data(dataset, classes):
+    return load_valid_or_test_data(dataset, '_inferences.txt', classes)
+
+
 @memory.cache
 def load_valid_or_test_data(dataset, suffix, classes):
     data = []
