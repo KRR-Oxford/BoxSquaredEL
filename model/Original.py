@@ -18,6 +18,7 @@ class Original(nn.Module):
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0, disjoint_dist=2):
         super(Original, self).__init__()
 
+        self.name = 'original'
         self.margin1 = margin1
         self.disjoint_dist = disjoint_dist
         self.margin = 0

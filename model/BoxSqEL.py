@@ -3,16 +3,17 @@ import torch.nn as nn
 import torch
 from torch.nn.functional import relu
 from boxes import Boxes
+import os
 
 np.random.seed(12)
 
 
 class BoxSqEL(nn.Module):
-
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
-                 ranking_fn='l2', reg_factor=0.1, loss='mse'):
+                 ranking_fn='l2', reg_factor=0.05, loss='mse'):
         super(BoxSqEL, self).__init__()
 
+        self.name = 'boxsqel'
         self.margin = margin
         self.disjoint_dist = disjoint_dist
         self.class_num = len(class_)
@@ -193,3 +194,12 @@ class BoxSqEL(nn.Module):
 
         total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss]
         return total_loss
+
+    def save(self, folder, best=False):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        suffix = '_best' if best else ''
+        np.save(f'{folder}/class_embeds{suffix}.npy', self.classEmbeddingDict.weight.detach().cpu().numpy())
+        np.save(f'{folder}/bumps{suffix}.npy', self.bumps.weight.detach().cpu().numpy())
+        np.save(f'{folder}/rel_heads{suffix}.npy', self.relation_heads.weight.detach().cpu().numpy())
+        np.save(f'{folder}/rel_tails{suffix}.npy', self.relation_tails.weight.detach().cpu().numpy())

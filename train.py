@@ -9,7 +9,7 @@ from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
 from model.BoxSqEL import BoxSqEL
-from utils.inferences_data_loader import load_data, load_valid_data
+from utils.prediction_data_loader import load_data, load_valid_data
 import logging
 import pandas as pd
 from tqdm import trange
@@ -28,10 +28,8 @@ def main():
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    task = 'inferences'
+    task = 'prediction'
     embedding_dim = 200
-    out_classes_file = f'data/{dataset}/{task}/class_embed'
-    out_relations_file = f'data/{dataset}/{task}/relation_embed'
 
     wandb.init(project=f"{dataset}-{task}", entity="krr")
 
@@ -42,31 +40,31 @@ def main():
     val_data = load_valid_data(dataset, classes)
     # val_data = None
     print('Loaded data.')
-    # model = Original(device, classes, len(relations), embedding_dim, batch=512, margin1=0.1, disjoint_dist=1)
+    # model = Original(device, classes, len(relations), embedding_dim, batch=512, margin1=0.05, disjoint_dist=2)
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
-    #                    disjoint_dist=1, ranking_fn='l2')
+    #                    disjoint_dist=2, ranking_fn='l2')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=1,
-                    ranking_fn='l2', reg_factor=0)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
+                    ranking_fn='l2', reg_factor=0.05)
+
+    out_folder = f'data/{dataset}/{task}/{model.name}'
 
     # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
     scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
     # scheduler = None
     model = model.to(device)
-    train(model, train_data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
-          num_epochs=5000, val_freq=100)
+    train(model, train_data, val_data, optimizer, scheduler, out_folder, num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
-    evaluate(dataset, task, embedding_size=model.embedding_dim, beta=model.beta, ranking_fn=model.ranking_fn, last=True)
+    evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,
+             ranking_fn=model.ranking_fn, best=True)
 
 
-def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_relations_file, classes, relations,
-          num_epochs=2000,
-          val_freq=100):
+def train(model, data, val_data, optimizer, scheduler, out_folder, num_epochs=2000, val_freq=100):
     model.train()
     wandb.watch(model)
 
@@ -96,13 +94,13 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
                                     model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
                        'median_rank': np.median(ranking.ranks)}, commit=False)
-            if ranking.top100 >= best_top100:
-                # if np.mean(ranking.ranks) <= best_mr:
+            # if ranking.top100 >= best_top100:
+            if np.median(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10
                 best_top100 = ranking.top100
-                best_mr = np.mean(ranking.ranks)
+                best_mr = np.median(ranking.ranks)
                 best_epoch = epoch
-                save_model(model, f'{out_classes_file}_best.pkl', f'{out_relations_file}_best.pkl', classes, relations)
+                model.save(out_folder, best=True)
         wandb.log({'loss': loss})
 
         optimizer.zero_grad()
@@ -114,19 +112,7 @@ def train(model, data, val_data, optimizer, scheduler, out_classes_file, out_rel
     wandb.finish()
 
     print(f'Best epoch: {best_epoch}')
-    save_model(model, f'{out_classes_file}_last.pkl', f'{out_relations_file}_last.pkl', classes, relations)
-
-
-def save_model(model, cls_file, rel_file, classes, relations):
-    df = pd.DataFrame(
-        {'classes': list(classes.keys()),
-         'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    df.to_pickle(cls_file)
-
-    # df = pd.DataFrame(
-    #     {'relations': list(relations.keys()),
-    #      'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    # df.to_pickle(rel_file)
+    model.save(out_folder)
 
 
 if __name__ == '__main__':

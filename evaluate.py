@@ -10,38 +10,44 @@ from torch.nn.functional import softplus, relu
 
 from RankingResult import RankingResult
 from utils.utils import get_device
-from utils.inferences_data_loader import load_data, load_inferences_data
+from utils.prediction_data_loader import load_data, load_test_data
 
 logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'inferences', embedding_size=200, ranking_fn='l2', beta=1, last=True)
+    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
 
-def evaluate(dataset, task, embedding_size, beta, ranking_fn, last=False):
-    which_model = 'last' if last else 'best'
-    cls_embeds_file = f'data/{dataset}/{task}/class_embed_{which_model}.pkl'
-    # rel_embeds_file = f'data/{dataset}/relationELEmbed.pkl'
+class BoxSqELLoadedModel:
+    class_embeds: torch.Tensor
+    bumps: torch.Tensor
+    relation_heads: torch.Tensor
+    relation_tails: torch.Tensor
 
+    @staticmethod
+    def load(folder, device, best=False):
+        model = BoxSqELLoadedModel()
+        suffix = '_best' if best else ''
+        model.class_embeds = torch.from_numpy(np.load(f'{folder}/class_embeds{suffix}.npy')).to(device)
+        return model
+
+
+def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):
     device = get_device()
 
-    cls_df = pd.read_pickle(cls_embeds_file)
+    model = BoxSqELLoadedModel.load(f'data/{dataset}/{task}/{model_name}', device, best)
+    # rel_embeds_file = f'data/{dataset}/relationELEmbed.pkl'
+
     # rel_df = pd.read_pickle(rel_embeds_file)
-    nb_classes = len(cls_df)
+    nb_classes = model.class_embeds.shape[0]
     # nb_relations = len(rel_df)
     # print(f'#Classes: {nb_classes}, #Relations: {nb_relations}')
 
-    embeds_list = cls_df['embeddings'].values
     # r_embeds_list = rel_df['embeddings'].values
     # relations = {v: k for k, v in enumerate(rel_df['relations'])}
-    size = len(embeds_list[0])
-    assert (size == 2 * embedding_size)
-    embeds = torch.zeros((nb_classes, size), requires_grad=False).to(device)
-    for i, emb in enumerate(embeds_list):
-        embeds[i, :] = torch.from_numpy(emb).to(device)
 
     # relations
     # r_size = len(r_embeds_list[0])
@@ -51,10 +57,10 @@ def evaluate(dataset, task, embedding_size, beta, ranking_fn, last=False):
 
     print('Loading data')
     _, classes, relations = load_data(dataset)
-    test_data = load_inferences_data(dataset, classes)
+    test_data = load_test_data(dataset, classes)
 
-    acc = compute_accuracy(embeds, embedding_size, test_data, device)
-    ranking = compute_ranks(embeds, embedding_size, test_data, device, ranking_fn, beta, use_tqdm=True)
+    acc = compute_accuracy(model.class_embeds, embedding_size, test_data, device)
+    ranking = compute_ranks(model.class_embeds, embedding_size, test_data, device, ranking_fn, beta, use_tqdm=True)
 
     ranks_dict = Counter(ranking.ranks)
     rank_auc = compute_rank_roc(ranks_dict, nb_classes)

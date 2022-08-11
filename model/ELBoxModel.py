@@ -13,6 +13,7 @@ class ELBoxModel(nn.Module):
                  ranking_fn='l2'):
         super(ELBoxModel, self).__init__()
 
+        self.name = 'elbe'
         self.margin = margin
         self.disjoint_dist = disjoint_dist
         self.classNum = len(class_)
