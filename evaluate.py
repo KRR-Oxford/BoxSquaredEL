@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'prediction', model_name='elbe', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
@@ -34,14 +34,30 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
     test_data = load_test_data(dataset, classes)
 
     # acc = compute_accuracy(model.class_embeds, embedding_size, test_data, device)
-    ranking = compute_ranks(model, test_data, 'nf1', device, ranking_fn, beta, use_tqdm=True)
+    rankings = []
+    for nf in ['nf1', 'nf2', 'nf3', 'nf4']:
+        ranking = compute_ranks(model, test_data, num_classes, nf, device, ranking_fn, beta, use_tqdm=True)
+        rankings.append(ranking)
 
-    ranks_dict = Counter(ranking.ranks)
-    rank_auc = compute_rank_roc(ranks_dict, num_classes)
+    for i, nf in enumerate(['nf1', 'nf2', 'nf3', 'nf4']):
+        print(nf.upper())
+        print('=========')
+        print(rankings[i])
+        print()
 
-    print(f'{dataset}: top1: {ranking.top1:.2f}, top10: {ranking.top10:.2f}, '
-          f'top100: {ranking.top100:.2f}, mean: {np.mean(ranking.ranks):.2f}, median: {np.median(ranking.ranks):.2f}, '
-          f'auc: {rank_auc:.2f}')
+    print('Combined')
+    print('=========')
+    print(combine_rankings(rankings, num_classes))
+
+
+def combine_rankings(rankings, num_classes):
+    combined_ranking = RankingResult(0, 0, 0, [], 0)
+    for ranking in rankings:
+        combined_ranking = combined_ranking.combine(ranking)
+    ranks_dict = Counter(combined_ranking.ranks)
+    auc = compute_rank_roc(ranks_dict, num_classes)
+    combined_ranking.auc = auc
+    return combined_ranking
 
 
 def compute_accuracy(embeds, embedding_size, eval_data, device):
@@ -59,7 +75,7 @@ def compute_accuracy(embeds, embedding_size, eval_data, device):
     return (results <= 0).all(dim=1).float().mean()
 
 
-def compute_ranks(model, eval_data, nf, device, ranking_fn, beta, batch_size=100, use_tqdm=False):
+def compute_ranks(model, eval_data, num_classes, nf, device, ranking_fn, beta, batch_size=100, use_tqdm=False):
     if nf not in eval_data:
         raise ValueError('Tried to evaluate model on normal form not present in the evaluation data')
     eval_data = eval_data[nf]
@@ -84,11 +100,9 @@ def compute_ranks(model, eval_data, nf, device, ranking_fn, beta, batch_size=100
         top100 += (batch_ranks <= 100).sum()
         ranks += batch_ranks.tolist()
 
-    top1 /= n
-    top10 /= n
-    top100 /= n
-
-    return RankingResult(top1, top10, top100, ranks)
+    ranks_dict = Counter(ranks)
+    auc = compute_rank_roc(ranks_dict, num_classes)
+    return RankingResult(top1, top10, top100, ranks, auc)
 
 
 def compute_nf1_ranks(model, batch_data, batch_size):

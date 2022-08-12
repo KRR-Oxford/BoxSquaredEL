@@ -58,14 +58,14 @@ def main():
     scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
     # scheduler = None
     model = model.to(device)
-    train(model, train_data, val_data, optimizer, scheduler, out_folder, num_epochs=5000, val_freq=100)
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_epochs=5000, val_freq=100)
 
     print('Computing test scores...')
     evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,
              ranking_fn=model.ranking_fn, best=True)
 
 
-def train(model, data, val_data, optimizer, scheduler, out_folder, num_epochs=2000, val_freq=100):
+def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, num_epochs=2000, val_freq=100):
     model.train()
     wandb.watch(model)
 
@@ -90,8 +90,8 @@ def train(model, data, val_data, optimizer, scheduler, out_folder, num_epochs=20
         if epoch % val_freq == 0 and val_data is not None:
             # acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             # wandb.log({'acc': acc}, commit=False)
-            ranking = compute_ranks(model.to_loaded_model(), val_data, 'nf1', model.device, model.ranking_fn,
-                                    model.beta)
+            ranking = compute_ranks(model.to_loaded_model(), val_data, num_classes, 'nf1', model.device,
+                                    model.ranking_fn, model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
                        'median_rank': np.median(ranking.ranks)}, commit=False)
             # if ranking.top100 >= best_top100:
