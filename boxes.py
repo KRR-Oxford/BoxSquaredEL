@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import torch
 
+
 @dataclass
 class Boxes:
     centers: torch.Tensor
@@ -15,3 +16,6 @@ class Boxes:
 
     def translate(self, directions):
         return Boxes(self.centers + directions, self.offsets)
+
+    def __getitem__(self, item):
+        return Boxes(self.centers[item], self.offsets[item])

@@ -20,7 +20,7 @@ def load_arrays(path):
     for file in os.listdir(path):
         arr = np.load(f'{path}/{file}')
         file = file.replace('.npy', '')
-        d[file] = torch.from_numpy(arr)
+        d[file] = torch.from_numpy(arr).long()
     return d
 
 
@@ -32,9 +32,8 @@ def load_test_data(dataset, classes):
 
 
 def load_valid_or_test_data(dataset, folder):
-    path = f'{get_file_dir(dataset)}/{folder}/nf1.npy'
-    arr = np.load(path)
-    return arr.tolist()
+    path = f'{get_file_dir(dataset)}/{folder}'
+    return load_arrays(path)
 
 
 def load_data(dataset):
