@@ -88,7 +88,6 @@ def train(model, data, val_data, optimizer, scheduler, out_folder, num_epochs=20
         if epoch % 1000 == 0:
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0 and val_data is not None:
-            embeds = model.classEmbeddingDict.weight.clone().detach()
             # acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
             # wandb.log({'acc': acc}, commit=False)
             ranking = compute_ranks(model.to_loaded_model(), val_data, 'nf1', model.device, model.ranking_fn,
