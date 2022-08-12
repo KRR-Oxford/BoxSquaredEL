@@ -38,6 +38,7 @@ def main():
     # training procedure
     train_data, classes, relations = load_data(dataset)
     val_data = load_valid_data(dataset, classes)
+    val_data['nf1'] = val_data['nf1'][:1000]
     # val_data = None
     print('Loaded data.')
     # model = Original(device, classes, len(relations), embedding_dim, batch=512, margin1=0.05, disjoint_dist=2)
@@ -88,9 +89,9 @@ def train(model, data, val_data, optimizer, scheduler, out_folder, num_epochs=20
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0 and val_data is not None:
             embeds = model.classEmbeddingDict.weight.clone().detach()
-            acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
-            wandb.log({'acc': acc}, commit=False)
-            ranking = compute_ranks(embeds, model.embedding_dim, val_data[:1000], model.device, model.ranking_fn,
+            # acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
+            # wandb.log({'acc': acc}, commit=False)
+            ranking = compute_ranks(model.to_loaded_model(), val_data, 'nf1', model.device, model.ranking_fn,
                                     model.beta)
             wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
                        'median_rank': np.median(ranking.ranks)}, commit=False)

@@ -7,10 +7,11 @@ import math
 from tqdm import trange, tqdm
 from torch.nn.functional import softplus, relu
 
-from RankingResult import RankingResult
-from boxes import Boxes
+from ranking_result import RankingResult
+from loaded_models import LoadedModel
 from utils.utils import get_device
 from utils.prediction_data_loader import load_data, load_test_data
+from loaded_models import LoadedModel
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,32 +22,10 @@ def main():
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
 
-class BoxSqELLoadedModel:
-    embedding_size: int
-    class_embeds: torch.Tensor
-    bumps: torch.Tensor
-    relation_heads: torch.Tensor
-    relation_tails: torch.Tensor
-
-    @staticmethod
-    def load(folder, embedding_size, device, best=False):
-        model = BoxSqELLoadedModel()
-        model.embedding_size = embedding_size
-        suffix = '_best' if best else ''
-        model.class_embeds = torch.from_numpy(np.load(f'{folder}/class_embeds{suffix}.npy')).to(device)
-        model.bumps = torch.from_numpy(np.load(f'{folder}/bumps{suffix}.npy')).to(device)
-        model.relation_heads = torch.from_numpy(np.load(f'{folder}/rel_heads{suffix}.npy')).to(device)
-        model.relation_tails = torch.from_numpy(np.load(f'{folder}/rel_tails{suffix}.npy')).to(device)
-        return model
-
-    def get_boxes(self, embedding):
-        return Boxes(embedding[:, :self.embedding_size], torch.abs(embedding[:, self.embedding_size:]))
-
-
 def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):
     device = get_device()
 
-    model = BoxSqELLoadedModel.load(f'data/{dataset}/{task}/{model_name}', embedding_size, device, best)
+    model = LoadedModel.from_name(model_name, f'data/{dataset}/{task}/{model_name}', embedding_size, device, best)
     num_classes = model.class_embeds.shape[0]
 
     print('Loading data')
@@ -55,7 +34,6 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
     test_data = load_test_data(dataset, classes)
 
     # acc = compute_accuracy(model.class_embeds, embedding_size, test_data, device)
-    # ranking = compute_ranks(model, test_data, 'nf1', device, ranking_fn, beta, use_tqdm=True)
     ranking = compute_ranks(model, test_data, 'nf3', device, ranking_fn, beta, use_tqdm=True)
 
     ranks_dict = Counter(ranking.ranks)
@@ -98,6 +76,8 @@ def compute_ranks(model, eval_data, nf, device, ranking_fn, beta, batch_size=100
         current_batch_size = min(batch_size, n - start)
         batch_data = eval_data[start:start + current_batch_size, :]
         fun = f'compute_{nf}_ranks'
+        if model.is_translational() and nf in ['nf3', 'nf4']:
+            fun += '_translational'
         batch_ranks = globals()[fun](model, batch_data, current_batch_size)  # call the correct function based on NF
         top1 += (batch_ranks <= 1).sum()
         top10 += (batch_ranks <= 10).sum()
@@ -118,6 +98,8 @@ def compute_nf1_ranks(model, batch_data, batch_size):
 
     dists = batch_centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
+    dists[:, batch_data[:, 0]] = torch.inf  # TODO: finish filtering
+
     index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
     batch_ranks = torch.take_along_dim(index, batch_data[:, 1].reshape(-1, 1), dim=1).flatten()
     return batch_ranks
@@ -130,7 +112,7 @@ def compute_nf3_ranks(model, batch_data, batch_size):
     tail_boxes = model.get_boxes(model.relation_tails)
 
     centers = class_boxes.centers
-    d_centers = class_boxes.centers[batch_data[:, 2]]
+    d_centers = centers[batch_data[:, 2]]
     d_bumps = bumps[batch_data[:, 2]]
     batch_heads = head_boxes.centers[batch_data[:, 1]]
     batch_tails = tail_boxes.centers[batch_data[:, 1]]
@@ -143,6 +125,21 @@ def compute_nf3_ranks(model, batch_data, batch_size):
     d_dists = bumped_d_centers - batch_tails[:, None, :]
     d_dists = torch.linalg.norm(d_dists, dim=2, ord=2)
     dists = c_dists + d_dists
+
+    index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
+    batch_ranks = torch.take_along_dim(index, batch_data[:, 0].reshape(-1, 1), dim=1).flatten()
+    return batch_ranks
+
+
+def compute_nf3_ranks_translational(model, batch_data, batch_size):
+    class_boxes = model.get_boxes(model.class_embeds)
+    centers = class_boxes.centers
+    d_centers = centers[batch_data[:, 2]]
+    batch_relations = model.relation_embeds[batch_data[:, 1]]
+
+    translated_centers = torch.tile(centers, (batch_size, 1, 1)) + batch_relations[:, None, :]
+    dists = d_centers[:, None, :] - translated_centers
+    dists = torch.linalg.norm(dists, dim=2, ord=2)
 
     index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
     batch_ranks = torch.take_along_dim(index, batch_data[:, 0].reshape(-1, 1), dim=1).flatten()

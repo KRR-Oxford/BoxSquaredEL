@@ -4,6 +4,7 @@ import torch
 from torch.nn.functional import relu
 from boxes import Boxes
 import os
+from loaded_models import BoxSqELLoadedModel
 
 np.random.seed(12)
 
@@ -194,6 +195,15 @@ class BoxSqEL(nn.Module):
 
         total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss]
         return total_loss
+
+    def to_loaded_model(self):
+        model = BoxSqELLoadedModel()
+        model.embedding_size = self.embedding_dim
+        model.class_embeds = self.classEmbeddingDict.weight.detach()
+        model.bumps = self.bumps.weight.detach()
+        model.relation_heads = self.relation_heads.weight.detach()
+        model.relation_tails = self.relation_tails.weight.detach()
+        return model
 
     def save(self, folder, best=False):
         if not os.path.exists(folder):

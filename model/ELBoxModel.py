@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch
 from torch.nn.functional import relu
 from boxes import Boxes
+import os
+from loaded_models import BoxLoadedModel
 
 np.random.seed(12)
 
@@ -164,3 +166,17 @@ class ELBoxModel(nn.Module):
 
         totalLoss = [loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
         return totalLoss
+
+    def to_loaded_model(self):
+        model = BoxLoadedModel()
+        model.embedding_size = self.embedding_dim
+        model.class_embeds = self.classEmbeddingDict.weight.detach()
+        model.relation_embeds = self.relationEmbeddingDict.weight.detach()
+        return model
+
+    def save(self, folder, best=False):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        suffix = '_best' if best else ''
+        np.save(f'{folder}/class_embeds{suffix}.npy', self.classEmbeddingDict.weight.detach().cpu().numpy())
+        np.save(f'{folder}/relations{suffix}.npy', self.relationEmbeddingDict.weight.detach().cpu().numpy())
