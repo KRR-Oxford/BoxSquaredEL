@@ -135,6 +135,7 @@ def load_data(filename):
     data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
     data['top'] = torch.tensor([classes['owl:Thing']],  dtype=torch.int32)
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
+    data['prot_ids'] = prot_ids
 
     for key, val in data.items():
         index = np.arange(len(data[key]))
@@ -279,6 +280,7 @@ def load_data_ball(filename):
     data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
     data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
+    data['prot_ids'] = prot_ids
 
     for key, val in data.items():
         index = np.arange(len(data[key]))

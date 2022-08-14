@@ -5,6 +5,7 @@ import torch.optim as optim
 from model.ELBoxModel import ELBoxModel
 from model.Original import Original
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
+from model.BoxSqEL import BoxSqEL
 from utils.ppi_data_loader import load_data, load_valid_data
 import logging
 import torch
@@ -12,6 +13,7 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 import wandb
+import json
 
 from utils.utils import get_device
 
@@ -63,16 +65,22 @@ logging.basicConfig(level=logging.INFO)
 def main(data_file, valid_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
          learning_rate, params_array_index, loss_history_file):
-    wandb.init(project="el2box", entity="krr")
+    wandb.init(project="ppi", entity="krr")
 
     device = get_device()
 
     # training procedure
     train_data, classes, relations = load_data(data_file)
+    with open('data/ppi/classes.json', 'w+') as f:
+        json.dump(classes, f)
+    with open('data/ppi/relations.json', 'w+') as f:
+        json.dump(relations, f)
+
     print(len(relations))
     embedding_dim = 50
-    model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05)
+    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05)
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0.05)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch_size, margin=0.05)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     model = model.to(device)
@@ -80,19 +88,20 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     model.eval()
 
     model = model.to(device)
+    model.save('data/ppi')
 
-    cls_file = out_classes_file
-    df = pd.DataFrame(
-        {'classes': list(classes.keys()),
-         'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    df.to_pickle(cls_file)
-
-    rel_file = out_relations_file
-    df = pd.DataFrame(
-        {'relations': list(relations.keys()),
-         'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
-
-    df.to_pickle(rel_file)
+    # cls_file = out_classes_file
+    # df = pd.DataFrame(
+    #     {'classes': list(classes.keys()),
+    #      'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    # df.to_pickle(cls_file)
+    #
+    # rel_file = out_relations_file
+    # df = pd.DataFrame(
+    #     {'relations': list(relations.keys()),
+    #      'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
+    #
+    # df.to_pickle(rel_file)
 
 
 def train(model, data, optimizer, aclasses, relations, num_epochs=7000):
@@ -100,6 +109,14 @@ def train(model, data, optimizer, aclasses, relations, num_epochs=7000):
     wandb.watch(model)
 
     for epoch in trange(num_epochs):
+        nf3 = data['nf3']
+        randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
+        randoms = torch.from_numpy(randoms)
+        new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
+        new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
+        new_neg = torch.cat([new_tails, new_heads], dim=0)
+        data['nf3_neg'] = new_neg
+
         re = model(data)
         loss = sum(re)
         wandb.log({'loss': loss})
