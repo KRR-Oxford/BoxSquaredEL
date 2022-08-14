@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GALEN', 'prediction', model_name='elbe', embedding_size=200, ranking_fn='l2', beta=1, best=True)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
@@ -196,17 +196,21 @@ def dists_to_ranks(dists, targets):
 
 
 def compute_rank_roc(ranks, num_classes):
-    auc_x = list(ranks.keys())
-    auc_x.sort()
-    auc_y = []
+    sorted_ranks = sorted(list(ranks.keys()))
+    tprs = [0]
+    fprs = [0]
     tpr = 0
-    sum_rank = sum(ranks.values())
-    for x in auc_x:
+    num_triples = sum(ranks.values())
+    num_negatives = (num_classes - 1) * num_triples
+    for x in sorted_ranks:
         tpr += ranks[x]
-        auc_y.append(tpr / sum_rank)
-    auc_x.append(num_classes)
-    auc_y.append(1)
-    auc = np.trapz(auc_y, auc_x) / num_classes
+        tprs.append(tpr / num_triples)
+        fp = sum([(x - 1) * v if k <= x else x * v for k, v in ranks.items()])
+        fprs.append(fp / num_negatives)
+
+    tprs.append(1)
+    fprs.append(1)
+    auc = np.trapz(tprs, fprs)
     return auc
 
 
