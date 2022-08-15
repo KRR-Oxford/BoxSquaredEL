@@ -1,25 +1,34 @@
 import torch
 import numpy as np
 from utils.utils import memory
-import  random
+import random
+
 np.random.seed(100)
 
 
+def get_file_dir(dataset):
+    return f'data/ppi/{dataset}'
 
-'''load the normalized data(nf1, nf2, nf3, nf4)
-
-Args: 
-    filename: the normalized data, .owl format
-
-Return:
-    data: dictonary, nf1,nf2...data with triple or double class or relation index
-    classes: dictonary, key is class name, value is according index
-    relations: dictonary, key is relation name, value is according index
-'''
 
 @memory.cache
-def load_data(filename):
+def load_protein_data(dataset, folder, classes, relations):
+    filename = f'{get_file_dir(dataset)}/{folder}/protein_links.txt'
+    data = []
+    rel = f'<http://interacts>'
+    with open(filename, 'r') as f:
+        for line in f:
+            it = line.strip().split()
+            id1 = f'<http://{it[0]}>'
+            id2 = f'<http://{it[1]}>'
+            if id1 not in classes or id2 not in classes or rel not in relations:
+                continue
+            data.append((classes[id1], relations[rel], classes[id2]))
+    return data
 
+
+@memory.cache
+def load_data(dataset):
+    filename = f'{get_file_dir(dataset)}/train/{dataset}.owl'
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -127,13 +136,12 @@ def load_data(filename):
 
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
 
-
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
     data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)
     data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
     data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
-    data['top'] = torch.tensor([classes['owl:Thing']],  dtype=torch.int32)
+    data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
     data['prot_ids'] = prot_ids
 
@@ -146,21 +154,7 @@ def load_data(filename):
     return data, classes, relations
 
 
-    np.random.seed(100)
-
-    '''load the normalized data(nf1, nf2, nf3, nf4)
-
-    Args: 
-        filename: the normalized data, .owl format
-
-    Return:
-        data: dictonary, nf1,nf2...data with triple or double class or relation index
-        classes: dictonary, key is class name, value is according index
-        relations: dictonary, key is relation name, value is according index
-    '''
-
 def load_data_ball(filename):
-
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -269,9 +263,9 @@ def load_data_ball(filename):
         data['nf3_neg'].append((np.random.choice(prot_ids), r, d))
 
     for i in data['nf2'][10000:]:
-        a,b,c = i
-        print(str(a)+" "+str(b)+" "+str(c))
-        data['nf1'].append((c,a))
+        a, b, c = i
+        print(str(a) + " " + str(b) + " " + str(c))
+        data['nf1'].append((c, a))
         data['nf1'].append((c, b))
     data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
     data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
@@ -289,27 +283,3 @@ def load_data_ball(filename):
         data[key] = val[index]
 
     return data, classes, relations
-
-'''load valid data
-
-Args:
-    valid_data_file: .txt file, one line means two interacted proteins
-    classes: dictonary, key is class name, value is according index
-    relations: dictonary, key is relation name, value is according index
-
-Return value:
-    data: classes[id1], relations[rel], classes[id2]
-'''
-
-def load_valid_data(valid_data_file, classes, relations):
-    data = []
-    rel = f'<http://interacts>'
-    with open(valid_data_file, 'r') as f:
-        for line in f:
-            it = line.strip().split()
-            id1 = f'<http://{it[0]}>'
-            id2 = f'<http://{it[1]}>'
-            if id1 not in classes or id2 not in classes or rel not in relations:
-                continue
-            data.append((classes[id1], relations[rel], classes[id2]))
-    return data
