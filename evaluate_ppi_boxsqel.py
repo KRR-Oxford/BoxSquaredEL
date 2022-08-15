@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO)
 
 def main():
     print('Evaluating')
-    embedding_size = 50
-    dataset = 'yeast'
+    embedding_size = 200
+    dataset = 'human'
 
     device = get_device()
     model = LoadedModel.from_name('boxsqel', f'data/ppi/{dataset}/boxsqel/', embedding_size, device, best=True)

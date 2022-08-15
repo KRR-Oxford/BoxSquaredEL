@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import torch.optim as optim
+from torch.optim.lr_scheduler import MultiStepLR
+
 from model.ELBoxModel import ELBoxModel
 from model.Original import Original
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
@@ -20,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    dataset = 'yeast'
+    dataset = 'human'
     wandb.init(project=f"ppi-{dataset}", entity="krr")
 
     device = get_device()
@@ -34,15 +36,17 @@ def main():
     valid_data = load_protein_data(dataset, 'valid', classes, relations)
 
     print(len(relations))
-    embedding_dim = 50
+    embedding_dim = 200
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, 512, margin=0.05)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, 512, margin=0.05, disjoint_dist=5)
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)
+    scheduler = None
     model = model.to(device)
     out_folder = f'data/ppi/{dataset}/{model.name}'
-    train(model, train_data, valid_data, classes, optimizer, out_folder)
+    train(model, train_data, valid_data, classes, optimizer, scheduler, out_folder)
 
     # cls_file = out_classes_file
     # df = pd.DataFrame(
@@ -58,7 +62,7 @@ def main():
     # df.to_pickle(rel_file)
 
 
-def train(model, train_data, val_data, classes, optimizer, out_folder, num_epochs=7000, val_freq=100):
+def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_epochs=7000, val_freq=100):
     model.train()
     wandb.watch(model)
 
@@ -84,7 +88,7 @@ def train(model, train_data, val_data, classes, optimizer, out_folder, num_epoch
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0 and val_data is not None:
             ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-                compute_ranks(model.to_loaded_model(), val_data, prot_index, prot_dict, model.device, model.ranking_fn)
+                compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device, model.ranking_fn)
             ranks = ranks.cpu().numpy()
             wandb.log({'top10': top10, 'top100': top100, 'mean_rank': np.mean(ranks),
                        'median_rank': np.median(ranks)}, commit=False)
@@ -100,6 +104,8 @@ def train(model, train_data, val_data, classes, optimizer, out_folder, num_epoch
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
 
     wandb.finish()
     print(f'Best epoch: {best_epoch}')
