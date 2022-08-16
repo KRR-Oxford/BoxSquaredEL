@@ -130,6 +130,7 @@ dmypy.json
 
 # data
 data/
+data-old/
 
 .idea/misc.xml
 wandb
