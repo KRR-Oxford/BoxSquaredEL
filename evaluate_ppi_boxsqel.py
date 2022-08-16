@@ -21,10 +21,10 @@ def main():
     dataset = 'human'
 
     device = get_device()
-    model = LoadedModel.from_name('boxsqel', f'data/ppi/{dataset}/boxsqel/', embedding_size, device, best=True)
-    with open(f'data/ppi/{dataset}/classes.json', 'r') as f:
+    model = LoadedModel.from_name('boxsqel', f'data/PPI/{dataset}/boxsqel/', embedding_size, device, best=True)
+    with open(f'data/PPI/{dataset}/classes.json', 'r') as f:
         classes = json.load(f)
-    with open(f'data/ppi/{dataset}/relations.json', 'r') as f:
+    with open(f'data/PPI/{dataset}/relations.json', 'r') as f:
         relations = json.load(f)
 
     print('Loading data')

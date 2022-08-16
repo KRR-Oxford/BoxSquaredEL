@@ -7,7 +7,7 @@ np.random.seed(100)
 
 
 def get_file_dir(dataset):
-    return f'data/ppi/{dataset}'
+    return f'data/PPI/{dataset}'
 
 
 @memory.cache

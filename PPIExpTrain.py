@@ -29,9 +29,9 @@ def main():
 
     # training procedure
     train_data, classes, relations = load_data(dataset)
-    with open(f'data/ppi/{dataset}/classes.json', 'w+') as f:
+    with open(f'data/PPI/{dataset}/classes.json', 'w+') as f:
         json.dump(classes, f)
-    with open(f'data/ppi/{dataset}/relations.json', 'w+') as f:
+    with open(f'data/PPI/{dataset}/relations.json', 'w+') as f:
         json.dump(relations, f)
     valid_data = load_protein_data(dataset, 'val', classes, relations)
 
@@ -45,7 +45,7 @@ def main():
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)
     scheduler = None
     model = model.to(device)
-    out_folder = f'data/ppi/{dataset}/{model.name}'
+    out_folder = f'data/PPI/{dataset}/{model.name}'
     train(model, train_data, valid_data, classes, optimizer, scheduler, out_folder)
 
     # cls_file = out_classes_file

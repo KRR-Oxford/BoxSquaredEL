@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from utils.inferences_data_loader import load_data
+from utils.data_loader import DataLoader
 
 
 class Split:
@@ -81,8 +81,9 @@ class Split:
         self.nf4 = self.nf4[mask]
 
 
-dataset = 'GO'
-data, classes, relations = load_data(dataset)
+dataset = 'ANATOMY'
+data_loader = DataLoader.from_task('inferences')
+data, classes, relations = data_loader.load_data(dataset)
 
 folder = f'data/{dataset}/prediction'
 with open(f'{folder}/classes.json', 'w+') as f:

@@ -1,12 +1,13 @@
 import random
 import json
 
-from utils.inferences_data_loader import load_data
+from utils.data_loader import DataLoader
 
 random.seed(100)
 
-dataset = 'GO'
-data, classes, relations = load_data(dataset)
+dataset = 'ANATOMY'
+data_loader = DataLoader.from_task('inferences')
+data, classes, relations = data_loader.load_data(dataset)
 
 folder = f'data/{dataset}/inferences'
 

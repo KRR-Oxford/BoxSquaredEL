@@ -32,7 +32,7 @@ class InferencesDataLoader(DataLoader):
         return {'nf1': torch.tensor([(classes[tup[0]], classes[tup[1]]) for tup in data])}
 
     def load_data(self, dataset):
-        filename = self.get_file_dir(dataset) + f'{dataset}_norm.owl'
+        filename = self.get_file_dir(dataset) + f'{dataset}_norm_full.owl'
         classes = {}
         relations = {}
         data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
