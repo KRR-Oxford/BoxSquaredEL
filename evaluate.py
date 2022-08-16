@@ -39,17 +39,13 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
         ranking = compute_ranks(model, test_data, num_classes, nf, device, ranking_fn, beta, use_tqdm=True)
         rankings.append(ranking)
 
-    for i, nf in enumerate(nfs):
-        print(nf.upper())
-        print('=========')
-        print(rankings[i])
-        print()
-
+    output = '\n'.join([f'{nf.upper()}\n=========\n{rankings[i]}\n' for (i, nf) in enumerate(nfs)])
     if len(nfs) > 1:
-        print('Combined')
-        print('=========')
-        print(combine_rankings(rankings, num_classes))
+        output += f'\nCombined\n=========\n{combine_rankings(rankings, num_classes)}\n'
 
+    print(output)
+    with open('output.txt', 'w+') as f:
+        f.write(output)
 
 def combine_rankings(rankings, num_classes):
     combined_ranking = RankingResult(0, 0, 0, [], 0)

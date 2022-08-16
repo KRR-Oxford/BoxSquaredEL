@@ -136,4 +136,5 @@ wandb
 .idea
 cache
 scratch.ipynb
-try.py
+try*.py
+output.txt
