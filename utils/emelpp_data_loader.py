@@ -38,7 +38,7 @@ class EmELppDataLoader(DataLoader):
                 if id1 not in classes or id2 not in classes:
                     continue
                 data.append((classes[id1], classes[id2]))
-        return data
+        return {'nf1': torch.tensor(data)}
 
     def load_cls(self, train_data_file):
         train_subs = list()
