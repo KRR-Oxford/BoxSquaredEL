@@ -176,7 +176,7 @@ class BoxSqEL(nn.Module):
             disjoint_data = disjoint_data.to(self.device)
             disjoint_loss = self.nf2_disjoint_loss(disjoint_data)
             if self.loss == 'mse':
-                disjoint_loss = (self.disjoint_dist - disjoint_loss).relu().square().mean()
+                disjoint_loss = (self.disjoint_dist - disjoint_loss).square().mean()
             elif self.loss == 'bce':
                 disjoint_loss = criterion(-disjoint_loss, torch.zeros_like(disjoint_loss))
 

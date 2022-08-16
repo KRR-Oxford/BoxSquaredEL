@@ -28,7 +28,7 @@ def main():
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    task = 'inferences'
+    task = 'EmELpp'
     embedding_dim = 200
 
     wandb.init(project=f"{dataset}-{task}", entity="krr")
@@ -47,8 +47,8 @@ def main():
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=1,
-                    ranking_fn='l2', reg_factor=0)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
+                    ranking_fn='l2', reg_factor=0.05)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
@@ -69,7 +69,8 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
 
     best_top10 = 0
     best_top100 = 0
-    best_mr = sys.maxsize
+    best_median = sys.maxsize
+    best_mean = sys.maxsize
     best_epoch = 0
 
     for epoch in trange(num_epochs):
@@ -93,10 +94,12 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
             wandb.log({'top10': ranking.top10 / len(ranking), 'top100': ranking.top100 / len(ranking),
                        'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
             # if ranking.top100 >= best_top100:
-            if np.median(ranking.ranks) <= best_mr:
+            # if np.median(ranking.ranks) <= best_median:
+            if np.mean(ranking.ranks) <= best_mean:
                 best_top10 = ranking.top10
                 best_top100 = ranking.top100
-                best_mr = np.median(ranking.ranks)
+                best_median = np.median(ranking.ranks)
+                best_mean = np.mean(ranking.ranks)
                 best_epoch = epoch
                 model.save(out_folder, best=True)
         wandb.log({'loss': loss})
