@@ -9,7 +9,7 @@ from model.ElBallModel import ELBallModel
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Original import Original
 from model.BoxSqEL import BoxSqEL
-from utils.prediction_data_loader import load_data, load_valid_data
+from utils.data_loader import DataLoader
 import logging
 import pandas as pd
 from tqdm import trange
@@ -28,32 +28,30 @@ def main():
     np.random.seed(seed)
 
     dataset = 'GALEN'
-    task = 'prediction'
+    task = 'inferences'
     embedding_dim = 200
 
     wandb.init(project=f"{dataset}-{task}", entity="krr")
 
     device = get_device()
+    data_loader = DataLoader.from_task(task)
 
-    # training procedure
-    train_data, classes, relations = load_data(dataset)
-    val_data = load_valid_data(dataset, classes)
+    train_data, classes, relations = data_loader.load_data(dataset)
+    val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
-    # val_data = None
     print('Loaded data.')
     # model = Original(device, classes, len(relations), embedding_dim, batch=512, margin1=0.05, disjoint_dist=2)
-    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
+    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.1,
     #                    disjoint_dist=2, ranking_fn='l2')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
-                    ranking_fn='l2', reg_factor=0.05)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=1,
+                    ranking_fn='l2', reg_factor=0)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
-    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
     scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
     # scheduler = None
@@ -92,8 +90,8 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
             # wandb.log({'acc': acc}, commit=False)
             ranking = compute_ranks(model.to_loaded_model(), val_data, num_classes, 'nf1', model.device,
                                     model.ranking_fn, model.beta)
-            wandb.log({'top10': ranking.top10, 'top100': ranking.top100, 'mean_rank': np.mean(ranking.ranks),
-                       'median_rank': np.median(ranking.ranks)}, commit=False)
+            wandb.log({'top10': ranking.top10 / len(ranking), 'top100': ranking.top100 / len(ranking),
+                       'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
             # if ranking.top100 >= best_top100:
             if np.median(ranking.ranks) <= best_mr:
                 best_top10 = ranking.top10

@@ -4,20 +4,18 @@ import logging
 import numpy as np
 import torch
 import math
-from tqdm import trange, tqdm
-from torch.nn.functional import softplus, relu
+from tqdm import trange
 
 from ranking_result import RankingResult
-from loaded_models import LoadedModel
 from utils.utils import get_device
-from utils.prediction_data_loader import load_data, load_test_data
+from utils.data_loader import DataLoader
 from loaded_models import LoadedModel
 
 logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'prediction', model_name='elbe', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GO', 'prediction', model_name='elbe', embedding_size=200, ranking_fn='l2', beta=1, best=True)
     # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
     # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
 
@@ -29,25 +27,28 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
     num_classes = model.class_embeds.shape[0]
 
     print('Loading data')
-    _, classes, relations = load_data(dataset)
+    data_loader = DataLoader.from_task(task)
+    _, classes, relations = data_loader.load_data(dataset)
     assert (len(classes) == num_classes)
-    test_data = load_test_data(dataset, classes)
+    test_data = data_loader.load_test_data(dataset, classes)
 
     # acc = compute_accuracy(model.class_embeds, embedding_size, test_data, device)
+    nfs = ['nf1', 'nf2', 'nf3', 'nf4'] if task == 'prediction' else ['nf1']
     rankings = []
-    for nf in ['nf1', 'nf2', 'nf3', 'nf4']:
+    for nf in nfs:
         ranking = compute_ranks(model, test_data, num_classes, nf, device, ranking_fn, beta, use_tqdm=True)
         rankings.append(ranking)
 
-    for i, nf in enumerate(['nf1', 'nf2', 'nf3', 'nf4']):
+    for i, nf in enumerate(nfs):
         print(nf.upper())
         print('=========')
         print(rankings[i])
         print()
 
-    print('Combined')
-    print('=========')
-    print(combine_rankings(rankings, num_classes))
+    if len(nfs) > 1:
+        print('Combined')
+        print('=========')
+        print(combine_rankings(rankings, num_classes))
 
 
 def combine_rankings(rankings, num_classes):

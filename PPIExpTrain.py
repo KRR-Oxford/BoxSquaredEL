@@ -33,7 +33,7 @@ def main():
         json.dump(classes, f)
     with open(f'data/ppi/{dataset}/relations.json', 'w+') as f:
         json.dump(relations, f)
-    valid_data = load_protein_data(dataset, 'valid', classes, relations)
+    valid_data = load_protein_data(dataset, 'val', classes, relations)
 
     print(len(relations))
     embedding_dim = 200
