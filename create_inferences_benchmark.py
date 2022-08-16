@@ -5,7 +5,7 @@ from utils.inferences_data_loader import load_data
 
 random.seed(100)
 
-dataset = 'GALEN'
+dataset = 'GO'
 data, classes, relations = load_data(dataset)
 
 folder = f'data/{dataset}/inferences'
@@ -19,6 +19,7 @@ with open(f'{folder}/inferences.owl', 'r') as f:
         line = line.strip().replace('SubClassOf(', '').replace(')', '')
         class1, class2 = line.split(' ')
         if class1 not in classes or class2 not in classes:
+            print('ERROR: encountered unknown class')
             continue
         if (classes[class1], classes[class2]) in nf1_set:
             continue

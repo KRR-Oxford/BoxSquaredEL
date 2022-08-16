@@ -81,7 +81,7 @@ class Split:
         self.nf4 = self.nf4[mask]
 
 
-dataset = 'GALEN'
+dataset = 'GO'
 data, classes, relations = load_data(dataset)
 
 folder = f'data/{dataset}/prediction'
