@@ -27,8 +27,8 @@ def main():
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    dataset = 'GO'
-    task = 'inferences'
+    dataset = 'GALEN'
+    task = 'prediction'
     embedding_dim = 200
 
     wandb.init(project=f"{dataset}-{task}", entity="krr")
@@ -47,14 +47,14 @@ def main():
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
     #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=3,
-                    ranking_fn='l2', reg_factor=0)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, disjoint_dist=2,
+                    ranking_fn='l2', reg_factor=0.05)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
-    # scheduler = MultiStepLR(optimizer, milestones=[3000], gamma=0.1)
-    scheduler = None
+    scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
+    # scheduler = None
     model = model.to(device)
     train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_epochs=5000, val_freq=100)
 
