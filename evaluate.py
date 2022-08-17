@@ -15,9 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GO', 'prediction', model_name='elbe', embedding_size=200, ranking_fn='l2', beta=1, best=True)
-    # evaluate('GO', embedding_size=200, ranking_fn='l1', beta=.5)
-    # evaluate('ANATOMY', embedding_size=50, ranking_fn='l1', beta=.5)
+    evaluate('ANATOMY', 'inferences', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
 
 
 def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):
@@ -109,7 +107,7 @@ def compute_nf1_ranks(model, batch_data, batch_size):
 
     dists = batch_centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
-    dists[:, batch_data[:, 0]] = torch.inf  # TODO: finish filtering
+    dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c <= c
     return dists_to_ranks(dists, batch_data[:, 1])
 
 
@@ -122,6 +120,8 @@ def compute_nf2_ranks(model, batch_data, batch_size):
     intersection, _, _ = c_boxes.intersect(d_boxes)
     dists = intersection.centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
+    dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c n d <= c
+    dists.scatter_(1, batch_data[:, 1].reshape(-1, 1), torch.inf)  # filter out c n d <= d
     return dists_to_ranks(dists, batch_data[:, 2])
 
 
