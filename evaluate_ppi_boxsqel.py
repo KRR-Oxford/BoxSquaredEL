@@ -16,12 +16,12 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    print('Evaluating')
-    embedding_size = 200
-    dataset = 'human'
+    evaluate('yeast', 200)
 
+
+def evaluate(dataset, embedding_size):
     device = get_device()
-    model = LoadedModel.from_name('boxsqel', f'data/PPI/{dataset}/boxsqel/', embedding_size, device, best=True)
+    model = LoadedModel.from_name('boxsqel', f'data/PPI/{dataset}/boxsqel', embedding_size, device, best=True)
     with open(f'data/PPI/{dataset}/classes.json', 'r') as f:
         classes = json.load(f)
     with open(f'data/PPI/{dataset}/relations.json', 'r') as f:
@@ -43,8 +43,11 @@ def main():
     ranks = ranks.cpu().numpy()
     franks = franks.cpu().numpy()
 
-    print(f'{dataset} {embedding_size} {top10:.2f} {top100:.2f} {np.mean(ranks):.2f} {np.median(ranks)} {rank_auc:.2f}')
-    print(f'{dataset} {embedding_size} {ftop10:.2f} {ftop100:.2f} {np.mean(franks):.2f} {np.median(franks)} {frank_auc:.2f}')
+    output = f'{dataset} {embedding_size} {top10:.2f} {top100:.2f} {np.mean(ranks):.2f} {np.median(ranks)} {rank_auc:.2f}\n' \
+             f'{dataset} {embedding_size} {ftop10:.2f} {ftop100:.2f} {np.mean(franks):.2f} {np.median(franks)} {frank_auc:.2f}'
+    print(output)
+    with open('output.txt', 'w+') as f:
+        f.write(output)
 
 
 def compute_ranks(model, eval_data, prot_index, prot_dict, device, ranking_fn, train_labels=None, use_tqdm=False):

@@ -7,7 +7,7 @@ from model.Original import Original
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.BoxSqEL import BoxSqEL
 from utils.ppi_data_loader import load_data, load_protein_data
-from evaluate_ppi_boxsqel import compute_ranks, load_protein_index
+from evaluate_ppi_boxsqel import compute_ranks, load_protein_index, evaluate
 import logging
 import torch
 import numpy as np
@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    dataset = 'human'
+    dataset = 'yeast'
     wandb.init(project=f"ppi-{dataset}", entity="krr")
 
     device = get_device()
@@ -35,11 +35,10 @@ def main():
         json.dump(relations, f)
     valid_data = load_protein_data(dataset, 'val', classes, relations)
 
-    print(len(relations))
     embedding_dim = 200
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSqEL(device, classes, len(relations), embedding_dim, 512, margin=0.05, disjoint_dist=5)
+    model = BoxSqEL(device, classes, len(relations), embedding_dim, 512, margin=0.05, disjoint_dist=3, reg_factor=0.05)
 
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)
@@ -48,18 +47,8 @@ def main():
     out_folder = f'data/PPI/{dataset}/{model.name}'
     train(model, train_data, valid_data, classes, optimizer, scheduler, out_folder)
 
-    # cls_file = out_classes_file
-    # df = pd.DataFrame(
-    #     {'classes': list(classes.keys()),
-    #      'embeddings': list(model.classEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    # df.to_pickle(cls_file)
-    #
-    # rel_file = out_relations_file
-    # df = pd.DataFrame(
-    #     {'relations': list(relations.keys()),
-    #      'embeddings': list(model.relationEmbeddingDict.weight.clone().detach().cpu().numpy())})
-    #
-    # df.to_pickle(rel_file)
+    print('Computing test scores...')
+    evaluate(dataset, embedding_dim)
 
 
 def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_epochs=7000, val_freq=100):
@@ -88,7 +77,8 @@ def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder
             print('epoch:', epoch, 'loss:', round(loss.item(), 3))
         if epoch % val_freq == 0 and val_data is not None:
             ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-                compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device, model.ranking_fn)
+                compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device,
+                              model.ranking_fn)
             ranks = ranks.cpu().numpy()
             wandb.log({'top10': top10, 'top100': top100, 'mean_rank': np.mean(ranks),
                        'median_rank': np.median(ranks)}, commit=False)
