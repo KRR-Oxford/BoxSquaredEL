@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('ANATOMY', 'inferences', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GALEN', 'EmELpp', model_name='elbe+', embedding_size=200, ranking_fn='l2', beta=1, best=True)
 
 
 def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):

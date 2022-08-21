@@ -2,8 +2,8 @@
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 
-from model.ELBoxModel import ELBoxModel
-from model.Original import Original
+from model.ElbePlus import ElbePlus
+from model.Elbe import Elbe
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.BoxSqEL import BoxSqEL
 from utils.ppi_data_loader import load_data, load_protein_data
@@ -62,40 +62,43 @@ def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder
     best_mr = sys.maxsize
     best_epoch = 0
 
-    for epoch in trange(num_epochs):
-        nf3 = train_data['nf3']
-        randoms = np.random.choice(train_data['prot_ids'], size=(nf3.shape[0], 2))
-        randoms = torch.from_numpy(randoms)
-        new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
-        new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
-        new_neg = torch.cat([new_tails, new_heads], dim=0)
-        train_data['nf3_neg'] = new_neg
+    try:
+        for epoch in trange(num_epochs):
+            nf3 = train_data['nf3']
+            randoms = np.random.choice(train_data['prot_ids'], size=(nf3.shape[0], 2))
+            randoms = torch.from_numpy(randoms)
+            new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
+            new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
+            new_neg = torch.cat([new_tails, new_heads], dim=0)
+            train_data['nf3_neg'] = new_neg
 
-        re = model(train_data)
-        loss = sum(re)
-        if epoch % 1000 == 0:
-            print('epoch:', epoch, 'loss:', round(loss.item(), 3))
-        if epoch % val_freq == 0 and val_data is not None:
-            ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-                compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device,
-                              model.ranking_fn)
-            ranks = ranks.cpu().numpy()
-            wandb.log({'top10': top10, 'top100': top100, 'mean_rank': np.mean(ranks),
-                       'median_rank': np.median(ranks)}, commit=False)
-            # if ranking.top100 >= best_top100:
-            if np.median(ranks) <= best_mr:
-                best_top10 = top10
-                best_top100 = top100
-                best_mr = np.median(ranks)
-                best_epoch = epoch
-                model.save(out_folder, best=True)
-        wandb.log({'loss': loss})
+            re = model(train_data)
+            loss = sum(re)
+            if epoch % 1000 == 0:
+                print('epoch:', epoch, 'loss:', round(loss.item(), 3))
+            if epoch % val_freq == 0 and val_data is not None:
+                ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
+                    compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device,
+                                  model.ranking_fn)
+                ranks = ranks.cpu().numpy()
+                wandb.log({'top10': top10, 'top100': top100, 'mean_rank': np.mean(ranks),
+                           'median_rank': np.median(ranks)}, commit=False)
+                # if ranking.top100 >= best_top100:
+                if np.median(ranks) <= best_mr:
+                    best_top10 = top10
+                    best_top100 = top100
+                    best_mr = np.median(ranks)
+                    best_epoch = epoch
+                    model.save(out_folder, best=True)
+            wandb.log({'loss': loss})
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        if scheduler is not None:
-            scheduler.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
+    except KeyboardInterrupt:
+        print('Interrupted. Stopping training...')
 
     wandb.finish()
     print(f'Best epoch: {best_epoch}')
