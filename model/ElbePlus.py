@@ -4,18 +4,18 @@ import torch
 from torch.nn.functional import relu
 from boxes import Boxes
 import os
-from loaded_models import BoxLoadedModel
+from loaded_models import ElbeLoadedModel
 
 np.random.seed(12)
 
 
-class ELBoxModel(nn.Module):
+class ElbePlus(nn.Module):
 
     def __init__(self, device, class_, relationNum, embedding_dim, batch, margin=0, disjoint_dist=2,
                  ranking_fn='l2'):
-        super(ELBoxModel, self).__init__()
+        super(ElbePlus, self).__init__()
 
-        self.name = 'elbe'
+        self.name = 'elbe+'
         self.margin = margin
         self.disjoint_dist = disjoint_dist
         self.classNum = len(class_)
@@ -25,6 +25,7 @@ class ELBoxModel(nn.Module):
         self.beta = None
         self.ranking_fn = ranking_fn
         self.embedding_dim = embedding_dim
+        self.negative_sampling = True
 
         self.classEmbeddingDict = self.init_embeddings(self.classNum, embedding_dim * 2)
         self.relationEmbeddingDict = self.init_embeddings(relationNum, embedding_dim)
@@ -156,7 +157,7 @@ class ELBoxModel(nn.Module):
             rand_index = np.random.choice(len(input['disjoint']), size=batch)
             disJointData = input['disjoint'][rand_index]
             disJointData = disJointData.to(self.device)
-            disJointLoss = (self.disjoint_dist - self.disJointLoss(disJointData)).relu().square().mean()
+            disJointLoss = (self.disjoint_dist - self.disJointLoss(disJointData)).square().mean()
 
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
@@ -168,7 +169,7 @@ class ELBoxModel(nn.Module):
         return totalLoss
 
     def to_loaded_model(self):
-        model = BoxLoadedModel()
+        model = ElbeLoadedModel()
         model.embedding_size = self.embedding_dim
         model.class_embeds = self.classEmbeddingDict.weight.detach()
         model.relation_embeds = self.relationEmbeddingDict.weight.detach()

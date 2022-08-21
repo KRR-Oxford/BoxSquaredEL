@@ -18,7 +18,8 @@ class LoadedModel(ABC):
     def from_name(name, folder, embedding_size, device, best=False):
         model_dict = {
             'boxsqel': BoxSqELLoadedModel,
-            'elbe': BoxLoadedModel
+            'elbe': ElbeLoadedModel,
+            'elbe+': ElbeLoadedModel
         }
         return model_dict[name].load(folder, embedding_size, device, best)
 
@@ -44,7 +45,7 @@ class BoxSqELLoadedModel(LoadedModel):
         return model
 
 
-class BoxLoadedModel(LoadedModel):
+class ElbeLoadedModel(LoadedModel):
     class_embeds: torch.Tensor
     relation_embeds: torch.Tensor
 
@@ -53,7 +54,7 @@ class BoxLoadedModel(LoadedModel):
 
     @staticmethod
     def load(folder, embedding_size, device, best=False):
-        model = BoxLoadedModel()
+        model = ElbeLoadedModel()
         model.embedding_size = embedding_size
         suffix = '_best' if best else ''
         model.class_embeds = torch.from_numpy(np.load(f'{folder}/class_embeds{suffix}.npy')).to(device)

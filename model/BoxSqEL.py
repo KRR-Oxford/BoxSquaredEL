@@ -26,6 +26,7 @@ class BoxSqEL(nn.Module):
         self.embedding_dim = embedding_dim
         self.reg_factor = reg_factor
         self.loss = loss
+        self.negative_sampling = True
 
         self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
         self.bumps = self.init_embeddings(self.class_num, embedding_dim)

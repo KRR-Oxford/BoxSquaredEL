@@ -1,11 +1,14 @@
 import numpy as np
 import torch.nn as nn
 import torch
+import os
+
+from loaded_models import ElbeLoadedModel
 
 np.random.seed(12)
 
 
-class Original(nn.Module):
+class Elbe(nn.Module):
     '''
 
     Args:
@@ -15,12 +18,11 @@ class Original(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0, disjoint_dist=2):
-        super(Original, self).__init__()
+    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0):
+        super(Elbe, self).__init__()
 
-        self.name = 'original'
+        self.name = 'elbe'
         self.margin1 = margin1
-        self.disjoint_dist = disjoint_dist
         self.margin = 0
         self.classNum = len(class_)
         self.class_ = class_
@@ -29,7 +31,8 @@ class Original(nn.Module):
         self.reg_norm = 1
         self.inf = 4
         self.beta = None
-        self.ranking_fn = 'l1'
+        self.ranking_fn = 'l2'
+        self.negative_sampling = False
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -124,7 +127,7 @@ class Original(nn.Module):
         cen2 = d1
         euc = torch.abs(cen1 - cen2)
 
-        dst = torch.reshape(torch.linalg.norm(torch.maximum(euc - cr - dr + margin, zeros), axis=1), [-1, 1])
+        dst = torch.reshape(torch.linalg.norm(torch.maximum(-euc + cr + dr - margin, zeros), axis=1), [-1, 1])
 
         return dst
 
@@ -285,7 +288,8 @@ class Original(nn.Module):
             disJointData = disJointData.to(self.device)
             disJointLoss = self.disJointLoss(disJointData)
             mseloss = nn.MSELoss(reduce=True)
-            disJointLoss = mseloss(disJointLoss, torch.ones(disJointLoss.shape, requires_grad=False).to(self.device) * 2)
+            disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
+
         # negLoss
         rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
         negData = input['nf3_neg'][rand_index]
@@ -293,9 +297,23 @@ class Original(nn.Module):
         negLoss = self.neg_loss(negData)
 
         mseloss = nn.MSELoss(reduce=True)
-        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * self.disjoint_dist)
+        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
 
         totalLoss = [
             loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
 
         return (totalLoss)
+
+    def to_loaded_model(self):
+        model = ElbeLoadedModel()
+        model.embedding_size = self.embedding_dim
+        model.class_embeds = self.classEmbeddingDict.weight.detach()
+        model.relation_embeds = self.relationEmbeddingDict.weight.detach()
+        return model
+
+    def save(self, folder, best=False):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        suffix = '_best' if best else ''
+        np.save(f'{folder}/class_embeds{suffix}.npy', self.classEmbeddingDict.weight.detach().cpu().numpy())
+        np.save(f'{folder}/relations{suffix}.npy', self.relationEmbeddingDict.weight.detach().cpu().numpy())
