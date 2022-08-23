@@ -140,3 +140,4 @@ cache
 scratch.ipynb
 try*.py
 output.txt
+output.csv

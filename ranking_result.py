@@ -26,3 +26,8 @@ class RankingResult:
 
     def __len__(self):
         return len(self.ranks)
+
+    def to_csv(self):
+        return f'{self.top1 / len(self):.2f},{self.top10 / len(self):.2f},' \
+               f'{self.top100 / len(self):.2f},{round(np.median(self.ranks))},{np.mean([1 / r for r in self.ranks]):.2f},' \
+               f'{round(np.mean(self.ranks))},{self.auc:.2f}'

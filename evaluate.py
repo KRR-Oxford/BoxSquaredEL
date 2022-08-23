@@ -39,11 +39,17 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
 
     output = '\n'.join([f'{nf.upper()}\n=========\n{rankings[i]}\n' for (i, nf) in enumerate(nfs)])
     if len(nfs) > 1:
-        output += f'\nCombined\n=========\n{combine_rankings(rankings, num_classes)}\n'
+        rankings.append(combine_rankings(rankings, num_classes))
+        output += f'\nCombined\n=========\n{rankings[-1]}\n'
 
     print(output)
     with open('output.txt', 'w+') as f:
         f.write(output)
+
+    with open('output.csv', 'w+') as f:
+        csv_output = '\n\n'.join([ranking.to_csv() for ranking in rankings])
+        f.write(csv_output)
+
 
 def combine_rankings(rankings, num_classes):
     combined_ranking = RankingResult(0, 0, 0, [], 0)
