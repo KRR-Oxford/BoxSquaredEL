@@ -9,13 +9,13 @@ from tqdm import trange
 from ranking_result import RankingResult
 from utils.utils import get_device
 from utils.data_loader import DataLoader
-from loaded_models import LoadedModel
+from model.loaded_models import LoadedModel
 
 logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'EmELpp', model_name='elbe+', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
 
 
 def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):

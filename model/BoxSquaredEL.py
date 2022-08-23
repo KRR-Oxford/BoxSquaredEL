@@ -4,15 +4,15 @@ import torch
 from torch.nn.functional import relu
 from boxes import Boxes
 import os
-from loaded_models import BoxSqELLoadedModel
+from model.loaded_models import BoxSqELLoadedModel
 
 np.random.seed(12)
 
 
-class BoxSqEL(nn.Module):
+class BoxSquaredEL(nn.Module):
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
                  ranking_fn='l2', reg_factor=0.05, loss='mse'):
-        super(BoxSqEL, self).__init__()
+        super(BoxSquaredEL, self).__init__()
 
         self.name = 'boxsqel'
         self.margin = margin

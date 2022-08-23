@@ -5,8 +5,7 @@ import logging
 from tqdm import trange
 import numpy as np
 import torch
-from loaded_models import LoadedModel
-from torch.nn.functional import softplus, relu
+from model.loaded_models import LoadedModel
 from utils.ppi_data_loader import load_protein_data
 
 import math

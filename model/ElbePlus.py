@@ -4,7 +4,7 @@ import torch
 from torch.nn.functional import relu
 from boxes import Boxes
 import os
-from loaded_models import ElbeLoadedModel
+from model.loaded_models import ElbeLoadedModel
 
 np.random.seed(12)
 

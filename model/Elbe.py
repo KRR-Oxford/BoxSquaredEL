@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch
 import os
 
-from loaded_models import ElbeLoadedModel
+from model.loaded_models import ElbeLoadedModel
 
 np.random.seed(12)
 
