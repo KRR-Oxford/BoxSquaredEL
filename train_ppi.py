@@ -38,7 +38,7 @@ def main():
     embedding_dim = 200
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, 512, margin=0.05, disjoint_dist=3, reg_factor=0.05)
+    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, 512, margin=0.05, neg_dist=3, reg_factor=0.05)
 
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)

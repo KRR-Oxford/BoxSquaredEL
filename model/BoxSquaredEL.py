@@ -10,13 +10,13 @@ np.random.seed(12)
 
 
 class BoxSquaredEL(nn.Module):
-    def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, disjoint_dist=2,
-                 ranking_fn='l2', reg_factor=0.05, loss='mse'):
+    def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, neg_dist=2,
+                 ranking_fn='l2', reg_factor=0.05, num_neg=2, loss='mse'):
         super(BoxSquaredEL, self).__init__()
 
         self.name = 'boxsqel'
         self.margin = margin
-        self.disjoint_dist = disjoint_dist
+        self.neg_dist = neg_dist
         self.class_num = len(class_)
         self.class_ = class_
         self.relation_num = relation_num
@@ -27,6 +27,7 @@ class BoxSquaredEL(nn.Module):
         self.reg_factor = reg_factor
         self.loss = loss
         self.negative_sampling = True
+        self.num_neg = num_neg
 
         self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
         self.bumps = self.init_embeddings(self.class_num, embedding_dim)
@@ -51,6 +52,11 @@ class BoxSquaredEL(nn.Module):
         return dist
 
     def disjoint_loss(self, boxes1, boxes2):
+        diffs = torch.abs(boxes1.centers - boxes2.centers)
+        dist = torch.linalg.norm(relu(-diffs + boxes1.offsets + boxes2.offsets - self.margin), axis=1).reshape([-1, 1])
+        return dist
+
+    def neg_loss(self, boxes1, boxes2):
         diffs = torch.abs(boxes1.centers - boxes2.centers)
         dist = torch.reshape(torch.linalg.norm(relu(diffs - boxes1.offsets - boxes2.offsets + self.margin), axis=1),
                              [-1, 1])
@@ -99,7 +105,7 @@ class BoxSquaredEL(nn.Module):
         dist2 = self.inclusion_loss(d_boxes.translate(c_bumps), tail_boxes)
         return (dist1 + dist2) / 2
 
-    def neg_loss(self, input):
+    def nf3_neg_loss(self, input):
         c = self.classEmbeddingDict(input[:, 0])
         d = self.classEmbeddingDict(input[:, 2])
         c_bumps = self.bumps(input[:, 0])
@@ -112,8 +118,8 @@ class BoxSquaredEL(nn.Module):
         head_boxes = self.get_boxes(r_heads)
         tail_boxes = self.get_boxes(r_tails)
 
-        return self.disjoint_loss(c_boxes.translate(d_bumps), head_boxes), \
-               self.disjoint_loss(d_boxes.translate(c_bumps), tail_boxes)
+        return self.neg_loss(c_boxes.translate(d_bumps), head_boxes), \
+               self.neg_loss(d_boxes.translate(c_bumps), tail_boxes)
 
     def nf4_loss(self, input):
         d = self.classEmbeddingDict(input[:, 2])
@@ -177,17 +183,20 @@ class BoxSquaredEL(nn.Module):
             disjoint_data = disjoint_data.to(self.device)
             disjoint_loss = self.nf2_disjoint_loss(disjoint_data)
             if self.loss == 'mse':
-                disjoint_loss = (self.disjoint_dist - disjoint_loss).square().mean()
+                disjoint_loss = disjoint_loss.square().mean()
             elif self.loss == 'bce':
                 disjoint_loss = criterion(-disjoint_loss, torch.zeros_like(disjoint_loss))
 
-        rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
-        neg_data = input['nf3_neg'][rand_index]
+        rand_index = np.random.choice(len(input['nf3_neg0']), size=batch)
+        neg_data = input['nf3_neg0'][rand_index]
+        for i in range(1, self.num_neg):
+            neg_data2 = input[f'nf3_neg{i}'][rand_index]
+            neg_data = torch.cat([neg_data, neg_data2], dim=0)
         neg_data = neg_data.to(self.device)
-        neg_loss1, neg_loss2 = self.neg_loss(neg_data)
+        neg_loss1, neg_loss2 = self.nf3_neg_loss(neg_data)
         if self.loss == 'mse':
-            neg_loss = (self.disjoint_dist - neg_loss1).square().mean() + \
-                       (self.disjoint_dist - neg_loss2).square().mean()
+            neg_loss = (self.neg_dist - neg_loss1).square().mean() + \
+                       (self.neg_dist - neg_loss2).square().mean()
         elif self.loss == 'bce':
             neg_loss = criterion(-neg_loss1, torch.zeros_like(neg_loss1)) + \
                        criterion(-neg_loss2, torch.zeros_like(neg_loss2))
