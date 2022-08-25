@@ -43,7 +43,7 @@ def main():
     print(output)
     with open('avg_output.txt', 'w+') as f:
         f.write(output)
-    with open('avg_output.csv', 'w+') as f:
+    with open('avg_output_csv.txt', 'w+') as f:
         f.write(csv_output)
 
 

@@ -46,7 +46,7 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
     with open('output.txt', 'w+') as f:
         f.write(output)
 
-    with open('output.csv', 'w+') as f:
+    with open('output_csv.txt', 'w+') as f:
         csv_output = '\n\n'.join([ranking.to_csv() for ranking in rankings])
         f.write(csv_output)
 
