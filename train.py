@@ -47,10 +47,10 @@ def run(use_wandb=True):
     val_data['nf1'] = val_data['nf1'][:1000]
     print('Loaded data.')
     # model = Elbe(device, classes, len(relations), embedding_dim, batch=512, margin1=0.05)
-    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
-    #                    disjoint_dist=2, ranking_fn='l2')
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, neg_dist=2,
-                         ranking_fn='l2', reg_factor=0.05, num_neg=num_neg)
+    model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
+                     neg_dist=2, ranking_fn='l2')
+    # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, neg_dist=2,
+    #                      ranking_fn='l2', reg_factor=0.05, num_neg=num_neg)
 
     # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0,
     #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
@@ -67,7 +67,8 @@ def run(use_wandb=True):
     if not model.negative_sampling and task != 'EmELpp':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=2500, val_freq=100)
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=5000,
+          val_freq=100)
 
     print('Computing test scores...')
     scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,

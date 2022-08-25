@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from train import run
 import time
+from datetime import timedelta
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
         torch.cuda.empty_cache()
         gc.collect()
     end = time.time()
-    print(f'Took {start - end}s.')
+    print(f'Took {str(timedelta(seconds=int(end - start)))}s.')
 
     results = average_rankings(all_rankings)
     output = ''
