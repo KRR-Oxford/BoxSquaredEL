@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch
 from torch.nn.functional import softplus
 
-np.random.seed(12)
-
 
 class ELSoftplusBoxModel(nn.Module):
 

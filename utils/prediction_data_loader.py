@@ -7,8 +7,6 @@ import torch
 from utils.data_loader import DataLoader
 from utils.utils import get_device
 
-np.random.seed(100)
-
 device = get_device()
 
 

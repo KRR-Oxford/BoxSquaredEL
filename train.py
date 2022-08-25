@@ -23,16 +23,21 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    seed = 42
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    torch.manual_seed(42)
+    np.random.seed(12)
+    run()
 
+
+def run(use_wandb=True):
     dataset = 'GALEN'
     task = 'prediction'
     embedding_dim = 200
-    num_neg = 1
+    num_neg = 2
 
-    wandb.init(project=f"{dataset}-{task}", entity="krr")
+    if use_wandb:
+        wandb.init(project=f"{dataset}-{task}", entity="krr")
+    else:
+        wandb.init(mode="disabled")
 
     device = get_device()
     data_loader = DataLoader.from_task(task)
@@ -62,11 +67,12 @@ def main():
     if not model.negative_sampling and task != 'EmELpp':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=5000, val_freq=100)
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=2500, val_freq=100)
 
     print('Computing test scores...')
-    evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,
-             ranking_fn=model.ranking_fn, best=True)
+    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,
+                      ranking_fn=model.ranking_fn, best=True)
+    return scores
 
 
 def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, num_neg, num_epochs=2000, val_freq=100):

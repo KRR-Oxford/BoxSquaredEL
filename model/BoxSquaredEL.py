@@ -6,8 +6,6 @@ from boxes import Boxes
 import os
 from model.loaded_models import BoxSqELLoadedModel
 
-np.random.seed(12)
-
 
 class BoxSquaredEL(nn.Module):
     def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, neg_dist=2,

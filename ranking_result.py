@@ -6,9 +6,9 @@ from typing import List
 
 @dataclass
 class RankingResult:
-    top1: float
-    top10: float
-    top100: float
+    top1: int
+    top10: int
+    top100: int
     ranks: List[int]
     auc: float
 

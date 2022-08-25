@@ -141,3 +141,4 @@ scratch.ipynb
 try*.py
 output.txt
 output.csv
+avg_output.*

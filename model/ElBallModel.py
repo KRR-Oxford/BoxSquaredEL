@@ -1,7 +1,6 @@
 import numpy as np
 import torch.nn as nn
 import torch
-np.random.seed(12)
 class ELBallModel(nn.Module):
     '''
 

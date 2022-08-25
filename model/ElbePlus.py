@@ -6,8 +6,6 @@ from boxes import Boxes
 import os
 from model.loaded_models import ElbeLoadedModel
 
-np.random.seed(12)
-
 
 class ElbePlus(nn.Module):
 

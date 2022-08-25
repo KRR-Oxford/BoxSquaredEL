@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('ANATOMY', 'inferences', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
 
 
 def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):
@@ -50,6 +50,8 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
         csv_output = '\n\n'.join([ranking.to_csv() for ranking in rankings])
         f.write(csv_output)
 
+    return rankings
+
 
 def combine_rankings(rankings, num_classes):
     combined_ranking = RankingResult(0, 0, 0, [], 0)
@@ -82,7 +84,7 @@ def compute_ranks(model, eval_data, num_classes, nf, device, ranking_fn, beta, b
     eval_data = eval_data[nf]
     eval_data = eval_data.to(device)
 
-    top1, top10, top100 = 0., 0., 0.
+    top1, top10, top100 = 0, 0, 0
     ranks = []
     n = len(eval_data)
     num_batches = math.ceil(n / batch_size)
@@ -103,7 +105,7 @@ def compute_ranks(model, eval_data, num_classes, nf, device, ranking_fn, beta, b
 
     ranks_dict = Counter(ranks)
     auc = compute_rank_roc(ranks_dict, num_classes)
-    return RankingResult(top1, top10, top100, ranks, auc)
+    return RankingResult(top1.item(), top10.item(), top100.item(), ranks, auc)
 
 
 def compute_nf1_ranks(model, batch_data, batch_size):

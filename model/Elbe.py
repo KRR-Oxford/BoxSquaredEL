@@ -5,8 +5,6 @@ import os
 
 from model.loaded_models import ElbeLoadedModel
 
-np.random.seed(12)
-
 
 class Elbe(nn.Module):
     '''

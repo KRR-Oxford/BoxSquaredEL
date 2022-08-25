@@ -3,8 +3,6 @@ import numpy as np
 from utils.utils import memory
 import random
 
-np.random.seed(100)
-
 
 def get_file_dir(dataset):
     return f'data/PPI/{dataset}'
@@ -145,11 +143,13 @@ def load_data(dataset):
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
     data['prot_ids'] = prot_ids
 
+    random_state = np.random.get_state()
     for key, val in data.items():
         index = np.arange(len(data[key]))
         np.random.seed(100)
         np.random.shuffle(index)
         data[key] = val[index]
+    np.random.set_state(random_state)
 
     return data, classes, relations
 
@@ -276,10 +276,12 @@ def load_data_ball(filename):
     data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
     data['prot_ids'] = prot_ids
 
+    random_state = np.random.get_state()
     for key, val in data.items():
         index = np.arange(len(data[key]))
         np.random.seed(100)
         np.random.shuffle(index)
         data[key] = val[index]
+    np.random.set_state(random_state)
 
     return data, classes, relations

@@ -6,9 +6,6 @@ import json
 from utils.data_loader import DataLoader
 from utils.utils import get_device, memory
 
-np.random.seed(100)
-random.seed(100)
-
 device = get_device()
 
 
@@ -132,9 +129,11 @@ class InferencesDataLoader(DataLoader):
         data['nf3_neg'] = torch.tensor([], dtype=torch.int32)
         data['prot_ids'] = class_ids
 
+        random_state = np.random.get_state()
         for key, val in data.items():
             index = np.arange(len(data[key]))
             np.random.seed(100)
             np.random.shuffle(index)
             data[key] = val[index]
+        np.random.set_state(random_state)
         return data, classes, relations
