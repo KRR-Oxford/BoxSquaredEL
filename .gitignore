@@ -139,6 +139,8 @@ wandb
 cache
 scratch.ipynb
 try*.py
-output.txt
-output.csv
+output.*
+output_csv.*
 avg_output.*
+avg_output_csv.*
+nohup.out
