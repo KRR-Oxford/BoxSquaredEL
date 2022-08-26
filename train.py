@@ -29,7 +29,7 @@ def main():
 
 
 def run(use_wandb=True):
-    dataset = 'GALEN'
+    dataset = 'ANATOMY'
     task = 'prediction'
     embedding_dim = 200
     num_neg = 2
@@ -46,28 +46,22 @@ def run(use_wandb=True):
     val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
     print('Loaded data.')
-    # model = Elbe(device, classes, len(relations), embedding_dim, batch=512, margin1=0.05)
-    model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05,
-                     neg_dist=2, ranking_fn='l2')
-    # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, batch=512, margin=0.05, neg_dist=2,
-    #                      ranking_fn='l2', reg_factor=0.05, num_neg=num_neg)
-
-    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0,
-    #                           beta=1, disjoint_dist=2, ranking_fn='softplus')
-    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=batch_size, margin=0,
-    #                           beta=.5, disjoint_dist=5, ranking_fn='softplus')
+    model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
+    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2)
+    # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2,
+    #                      reg_factor=0.05, num_neg=num_neg)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
     optimizer = optim.Adam(model.parameters(), lr=5e-3)
-    scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
-    # scheduler = None
+    # scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
+    scheduler = None
     model = model.to(device)
 
     if not model.negative_sampling and task != 'EmELpp':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=5000,
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=10000,
           val_freq=100)
 
     print('Computing test scores...')
@@ -102,7 +96,7 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
                            'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
                 # if ranking.top100 >= best_top100:
                 if np.median(ranking.ranks) <= best_median:
-                    # if np.mean(ranking.ranks) <= best_mean:
+                # if np.mean(ranking.ranks) <= best_mean:
                     best_top10 = ranking.top10
                     best_top100 = ranking.top100
                     best_median = np.median(ranking.ranks)

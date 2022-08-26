@@ -144,3 +144,4 @@ output_csv.*
 avg_output.*
 avg_output_csv.*
 nohup.out
+family/out

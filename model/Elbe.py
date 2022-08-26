@@ -16,7 +16,7 @@ class Elbe(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim, batch, margin1=0):
+    def __init__(self, device, class_, relationNum, embedding_dim, margin1=0, vis_loss=False):
         super(Elbe, self).__init__()
 
         self.name = 'elbe'
@@ -31,6 +31,7 @@ class Elbe(nn.Module):
         self.beta = None
         self.ranking_fn = 'l2'
         self.negative_sampling = False
+        self.vis_loss = vis_loss
 
         self.classEmbeddingDict = nn.Embedding(self.classNum, embedding_dim * 2)
         nn.init.uniform_(self.classEmbeddingDict.weight, a=-1, b=1)
@@ -270,12 +271,15 @@ class Elbe(nn.Module):
         loss3 = mseloss(loss3, torch.zeros(loss3.shape, requires_grad=False).to(self.device))
 
         # nf4
-        rand_index = np.random.choice(len(input['nf4']), size=batch)
-        nf4Data = input['nf4'][rand_index]
-        nf4Data = nf4Data.to(self.device)
-        loss4 = self.nf4Loss(nf4Data)
-        mseloss = nn.MSELoss(reduce=True)
-        loss4 = mseloss(loss4, torch.zeros(loss4.shape, requires_grad=False).to(self.device))
+        if len(input['nf4']) == 0:
+            loss4 = 0
+        else:
+            rand_index = np.random.choice(len(input['nf4']), size=batch)
+            nf4Data = input['nf4'][rand_index]
+            nf4Data = nf4Data.to(self.device)
+            loss4 = self.nf4Loss(nf4Data)
+            mseloss = nn.MSELoss(reduce=True)
+            loss4 = mseloss(loss4, torch.zeros(loss4.shape, requires_grad=False).to(self.device))
 
         # disJoint
         if len(input['disjoint']) == 0:
@@ -289,16 +293,24 @@ class Elbe(nn.Module):
             disJointLoss = mseloss(disJointLoss, torch.zeros(disJointLoss.shape, requires_grad=False).to(self.device))
 
         # negLoss
-        rand_index = np.random.choice(len(input['nf3_neg']), size=batch)
-        negData = input['nf3_neg'][rand_index]
-        negData = negData.to(self.device)
-        negLoss = self.neg_loss(negData)
+        if len(input['nf3_neg0']) == 0:
+            negLoss = 0
+        else:
+            rand_index = np.random.choice(len(input['nf3_neg0']), size=batch)
+            negData = input['nf3_neg0'][rand_index]
+            negData = negData.to(self.device)
+            negLoss = self.neg_loss(negData)
+            mseloss = nn.MSELoss(reduce=True)
+            negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
 
-        mseloss = nn.MSELoss(reduce=True)
-        negLoss = mseloss(negLoss, torch.ones(negLoss.shape, requires_grad=False).to(self.device) * 2)
+        if self.vis_loss:
+            vis_loss = torch.relu(.2 - torch.abs(self.classEmbeddingDict.weight[:, self.embedding_dim:]))
+            vis_loss = vis_loss.mean()
+        else:
+            vis_loss = 0
 
         totalLoss = [
-            loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss]
+            loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss + vis_loss]
 
         return (totalLoss)
 

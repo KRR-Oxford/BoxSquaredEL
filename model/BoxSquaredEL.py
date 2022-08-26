@@ -8,8 +8,8 @@ from model.loaded_models import BoxSqELLoadedModel
 
 
 class BoxSquaredEL(nn.Module):
-    def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, neg_dist=2,
-                 ranking_fn='l2', reg_factor=0.05, num_neg=2, loss='mse'):
+    def __init__(self, device, class_, relation_num, embedding_dim, margin=0, neg_dist=2, reg_factor=0.05, num_neg=2,
+                 loss='mse', vis_loss=False):
         super(BoxSquaredEL, self).__init__()
 
         self.name = 'boxsqel'
@@ -19,13 +19,12 @@ class BoxSquaredEL(nn.Module):
         self.class_ = class_
         self.relation_num = relation_num
         self.device = device
-        self.beta = None
-        self.ranking_fn = ranking_fn
         self.embedding_dim = embedding_dim
         self.reg_factor = reg_factor
         self.loss = loss
         self.negative_sampling = True
         self.num_neg = num_neg
+        self.vis_loss = vis_loss
 
         self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
         self.bumps = self.init_embeddings(self.class_num, embedding_dim)
@@ -143,14 +142,17 @@ class BoxSquaredEL(nn.Module):
             loss1 = criterion(-loss1, torch.ones_like(loss1))
 
         # nf2
-        rand_index = np.random.choice(len(input['nf2']), size=batch)
-        nf2_data = input['nf2'][rand_index]
-        nf2_data = nf2_data.to(self.device)
-        loss2 = self.nf2_loss(nf2_data)
-        if self.loss == 'mse':
-            loss2 = loss2.square().mean()
-        elif self.loss == 'bce':
-            loss2 = criterion(-loss2, torch.ones_like(loss2))
+        if len(input['nf2']) == 0:
+            loss2 = 0
+        else:
+            rand_index = np.random.choice(len(input['nf2']), size=batch)
+            nf2_data = input['nf2'][rand_index]
+            nf2_data = nf2_data.to(self.device)
+            loss2 = self.nf2_loss(nf2_data)
+            if self.loss == 'mse':
+                loss2 = loss2.square().mean()
+            elif self.loss == 'bce':
+                loss2 = criterion(-loss2, torch.ones_like(loss2))
 
         # nf3
         rand_index = np.random.choice(len(input['nf3']), size=batch)
@@ -163,14 +165,17 @@ class BoxSquaredEL(nn.Module):
             loss3 = criterion(-loss3, torch.ones_like(loss3))
 
         # nf4
-        rand_index = np.random.choice(len(input['nf4']), size=batch)
-        nf4_data = input['nf4'][rand_index]
-        nf4_data = nf4_data.to(self.device)
-        loss4 = self.nf4_loss(nf4_data)
-        if self.loss == 'mse':
-            loss4 = loss4.square().mean()
-        elif self.loss == 'bce':
-            loss4 = criterion(-loss4, torch.ones_like(loss4))
+        if len(input['nf4']) == 0:
+            loss4 = 0
+        else:
+            rand_index = np.random.choice(len(input['nf4']), size=batch)
+            nf4_data = input['nf4'][rand_index]
+            nf4_data = nf4_data.to(self.device)
+            loss4 = self.nf4_loss(nf4_data)
+            if self.loss == 'mse':
+                loss4 = loss4.square().mean()
+            elif self.loss == 'bce':
+                loss4 = criterion(-loss4, torch.ones_like(loss4))
 
         # disJoint
         if len(input['disjoint']) == 0:
@@ -185,23 +190,32 @@ class BoxSquaredEL(nn.Module):
             elif self.loss == 'bce':
                 disjoint_loss = criterion(-disjoint_loss, torch.zeros_like(disjoint_loss))
 
-        rand_index = np.random.choice(len(input['nf3_neg0']), size=batch)
-        neg_data = input['nf3_neg0'][rand_index]
-        for i in range(1, self.num_neg):
-            neg_data2 = input[f'nf3_neg{i}'][rand_index]
-            neg_data = torch.cat([neg_data, neg_data2], dim=0)
-        neg_data = neg_data.to(self.device)
-        neg_loss1, neg_loss2 = self.nf3_neg_loss(neg_data)
-        if self.loss == 'mse':
-            neg_loss = (self.neg_dist - neg_loss1).square().mean() + \
-                       (self.neg_dist - neg_loss2).square().mean()
-        elif self.loss == 'bce':
-            neg_loss = criterion(-neg_loss1, torch.zeros_like(neg_loss1)) + \
-                       criterion(-neg_loss2, torch.zeros_like(neg_loss2))
+        if self.num_neg <= 0:
+            neg_loss = 0
+        else:
+            rand_index = np.random.choice(len(input['nf3_neg0']), size=batch)
+            neg_data = input['nf3_neg0'][rand_index]
+            for i in range(1, self.num_neg):
+                neg_data2 = input[f'nf3_neg{i}'][rand_index]
+                neg_data = torch.cat([neg_data, neg_data2], dim=0)
+            neg_data = neg_data.to(self.device)
+            neg_loss1, neg_loss2 = self.nf3_neg_loss(neg_data)
+            if self.loss == 'mse':
+                neg_loss = (self.neg_dist - neg_loss1).square().mean() + \
+                           (self.neg_dist - neg_loss2).square().mean()
+            elif self.loss == 'bce':
+                neg_loss = criterion(-neg_loss1, torch.zeros_like(neg_loss1)) + \
+                           criterion(-neg_loss2, torch.zeros_like(neg_loss2))
 
         reg_loss = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
 
-        total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss]
+        if self.vis_loss:  # only used for plotting nice boxes
+            vis_loss = relu(.2 - torch.abs(self.classEmbeddingDict.weight[:, self.embedding_dim:]))
+            vis_loss = vis_loss.mean()
+        else:
+            vis_loss = 0
+
+        total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss + vis_loss]
         return total_loss
 
     def to_loaded_model(self):

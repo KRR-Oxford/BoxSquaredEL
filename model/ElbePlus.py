@@ -8,8 +8,7 @@ from model.loaded_models import ElbeLoadedModel
 
 
 class ElbePlus(nn.Module):
-    def __init__(self, device, class_, relation_num, embedding_dim, batch, margin=0, neg_dist=2,
-                 ranking_fn='l2', num_neg=2, loss='mse'):
+    def __init__(self, device, class_, relation_num, embedding_dim, margin=0, neg_dist=2, num_neg=2, loss='mse'):
         super(ElbePlus, self).__init__()
 
         self.name = 'elbe+'
@@ -19,8 +18,6 @@ class ElbePlus(nn.Module):
         self.class_ = class_
         self.relation_num = relation_num
         self.device = device
-        self.beta = None
-        self.ranking_fn = ranking_fn
         self.embedding_dim = embedding_dim
         self.loss = loss
         self.negative_sampling = True
