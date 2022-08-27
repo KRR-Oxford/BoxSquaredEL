@@ -17,7 +17,8 @@ def main():
 
     start = time.time()
     all_rankings = []
-    for seed in seeds[:num_seeds]:
+    for i, seed in enumerate(seeds[:num_seeds]):
+        print(f'Run {i+1}/{num_seeds}')
         torch.manual_seed(seed[0])
         np.random.seed(seed[1])
         rankings = run(use_wandb=False)
