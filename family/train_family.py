@@ -10,10 +10,10 @@ from tqdm import trange
 torch.random.manual_seed(123)
 
 data, classes, relations = load_data()
-device = get_device()
-# model = BoxSquaredEL(device, classes, len(relations), embedding_dim=2, batch=5, margin=0, neg_dist=.5,
-#                      ranking_fn='l2', reg_factor=1, num_neg=0)
-model = Elbe(device, classes, len(relations), embedding_dim=2, batch=5, margin1=0)
+device = 'cpu'
+model = BoxSquaredEL(device, classes, len(relations), embedding_dim=2, margin=0, neg_dist=.5, reg_factor=1, num_neg=0,
+                     vis_loss=True)
+# model = Elbe(device, classes, len(relations), embedding_dim=2, margin1=0, vis_loss=True)
 optimizer = optim.Adam(model.parameters(), lr=5e-2)
 model = model.to(device)
 
