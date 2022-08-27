@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 
 from model.ElbePlus import ElbePlus
-from model.ElBallModel import ELBallModel
+from model.Elem import Elem
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Elbe import Elbe
 from model.BoxSquaredEL import BoxSquaredEL
@@ -29,7 +29,7 @@ def main():
 
 
 def run(use_wandb=True):
-    dataset = 'ANATOMY'
+    dataset = 'GALEN'
     task = 'prediction'
     embedding_dim = 200
     num_neg = 2
@@ -46,27 +46,27 @@ def run(use_wandb=True):
     val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
     print('Loaded data.')
-    model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
+    model = Elem(device, classes, len(relations), embedding_dim, margin=0.05)
+    # model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
     # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2)
     # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2,
     #                      reg_factor=0.05, num_neg=num_neg)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
-    optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    optimizer = optim.Adam(model.parameters(), lr=5e-4)
     # scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
     scheduler = None
     model = model.to(device)
 
-    if not model.negative_sampling and task != 'EmELpp':
+    if not model.negative_sampling and task != 'old':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=10000,
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=5000,
           val_freq=100)
 
     print('Computing test scores...')
-    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, beta=model.beta,
-                      ranking_fn=model.ranking_fn, best=True)
+    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, best=True)
     return scores
 
 
@@ -90,8 +90,7 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
             if epoch % val_freq == 0 and val_data is not None:
                 # acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
                 # wandb.log({'acc': acc}, commit=False)
-                ranking = compute_ranks(model.to_loaded_model(), val_data, num_classes, 'nf1', model.device,
-                                        model.ranking_fn, model.beta)
+                ranking = compute_ranks(model.to_loaded_model(), val_data, num_classes, 'nf1', model.device)
                 wandb.log({'top10': ranking.top10 / len(ranking), 'top100': ranking.top100 / len(ranking),
                            'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
                 # if ranking.top100 >= best_top100:

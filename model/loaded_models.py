@@ -19,7 +19,8 @@ class LoadedModel(ABC):
         model_dict = {
             'boxsqel': BoxSqELLoadedModel,
             'elbe': ElbeLoadedModel,
-            'elbe+': ElbeLoadedModel
+            'elbe+': ElbeLoadedModel,
+            'elem': ElbeLoadedModel
         }
         return model_dict[name].load(folder, embedding_size, device, best)
 
