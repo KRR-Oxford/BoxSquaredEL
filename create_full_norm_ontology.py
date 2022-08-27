@@ -1,7 +1,7 @@
 import shutil
 
 dataset = 'ANATOMY'
-folder = f'data/{dataset}/EmELpp'
+folder = f'data/{dataset}/old'
 out_file = f'data/{dataset}/inferences/{dataset}_norm_full.owl'
 
 shutil.copyfile(f'{folder}/{dataset}_latest_norm_mod.owl', out_file)

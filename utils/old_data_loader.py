@@ -7,7 +7,7 @@ from utils.utils import get_device, memory
 device = get_device()
 
 
-class EmELppDataLoader(DataLoader):
+class OldDataLoader(DataLoader):
 
     def __init__(self):
         self.load_valid_or_test_data = memory.cache(self.load_valid_or_test_data)
@@ -15,7 +15,7 @@ class EmELppDataLoader(DataLoader):
 
     @staticmethod
     def get_file_start(dataset):
-        return f'data/{dataset}/EmELpp/{dataset}'
+        return f'data/{dataset}/old/{dataset}'
 
     def load_val_data(self, dataset, classes):
         return self.load_valid_or_test_data(dataset, '_valid.txt', classes)
@@ -150,7 +150,7 @@ class EmELppDataLoader(DataLoader):
 
         # Add corrupted triples nf3
         n_classes = len(classes)
-        data['nf3_neg'] = []
+        data['nf3_neg0'] = []
         for c, r, d in data['nf3']:
             x = np.random.choice(prot_ids)
             while x == c:
@@ -159,8 +159,8 @@ class EmELppDataLoader(DataLoader):
             y = np.random.choice(prot_ids)
             while y == d:
                 y = np.random.choice(prot_ids)
-            data['nf3_neg'].append((c, r, x))
-            data['nf3_neg'].append((y, r, d))
+            data['nf3_neg0'].append((c, r, x))
+            data['nf3_neg0'].append((y, r, d))
 
         data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)[:, [0, 2]]
         data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
@@ -168,7 +168,7 @@ class EmELppDataLoader(DataLoader):
         data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
         data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
         data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
-        data['nf3_neg'] = torch.tensor(data['nf3_neg'], dtype=torch.int32)
+        data['nf3_neg0'] = torch.tensor(data['nf3_neg0'], dtype=torch.int32)
         data['prot_ids'] = prot_ids
 
         random_state = np.random.get_state()

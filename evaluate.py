@@ -18,7 +18,7 @@ def main():
     evaluate('ANATOMY', 'inferences', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
 
 
-def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=True):
+def evaluate(dataset, task, model_name, embedding_size, best=True):
     device = get_device()
 
     model = LoadedModel.from_name(model_name, f'data/{dataset}/{task}/{model_name}', embedding_size, device, best)
@@ -34,7 +34,7 @@ def evaluate(dataset, task, model_name, embedding_size, beta, ranking_fn, best=T
     nfs = ['nf1', 'nf2', 'nf3', 'nf4'] if task == 'prediction' else ['nf1']
     rankings = []
     for nf in nfs:
-        ranking = compute_ranks(model, test_data, num_classes, nf, device, ranking_fn, beta, use_tqdm=True)
+        ranking = compute_ranks(model, test_data, num_classes, nf, device, use_tqdm=True)
         rankings.append(ranking)
 
     output = '\n'.join([f'{nf.upper()}\n=========\n{rankings[i]}\n' for (i, nf) in enumerate(nfs)])
@@ -78,7 +78,7 @@ def compute_accuracy(embeds, embedding_size, eval_data, device):
     return (results <= 0).all(dim=1).float().mean()
 
 
-def compute_ranks(model, eval_data, num_classes, nf, device, ranking_fn, beta, batch_size=100, use_tqdm=False):
+def compute_ranks(model, eval_data, num_classes, nf, device, batch_size=100, use_tqdm=False):
     if nf not in eval_data:
         raise ValueError('Tried to evaluate model on normal form not present in the evaluation data')
     eval_data = eval_data[nf]

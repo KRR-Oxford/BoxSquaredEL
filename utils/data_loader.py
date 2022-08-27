@@ -16,11 +16,11 @@ class DataLoader(ABC):
 
     @staticmethod
     def from_task(task):
-        from utils.emelpp_data_loader import EmELppDataLoader
+        from utils.old_data_loader import OldDataLoader
         from utils.inferences_data_loader import InferencesDataLoader
         from utils.prediction_data_loader import PredictionDataLoader
         task_to_data_loader = {
-            'EmELpp': EmELppDataLoader,
+            'old': OldDataLoader,
             'inferences': InferencesDataLoader,
             'prediction': PredictionDataLoader
         }
