@@ -48,12 +48,12 @@ def run(use_wandb=True):
     print('Loaded data.')
     # model = Elem(device, classes, len(relations), embedding_dim, margin=0.05)
     # model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
-    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
+    model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
+    # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
-    optimizer = optim.Adam(model.parameters(), lr=5e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
     # scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
     scheduler = None
     model = model.to(device)

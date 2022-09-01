@@ -32,7 +32,7 @@ def evaluate(dataset, embedding_size):
     test_data = load_protein_data(dataset, 'test', classes, relations)
 
     ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-        compute_ranks(model, test_data, prot_index, prot_dict, device, 'l2', train_labels, use_tqdm=True)
+        compute_ranks(model, test_data, prot_index, prot_dict, device, train_labels, use_tqdm=True)
 
     ranks_dict = Counter(ranks.tolist())
     franks_dict = Counter(franks.tolist())
@@ -42,14 +42,14 @@ def evaluate(dataset, embedding_size):
     ranks = ranks.cpu().numpy()
     franks = franks.cpu().numpy()
 
-    output = f'{dataset} {embedding_size} {top10:.2f} {top100:.2f} {np.mean(ranks):.2f} {np.median(ranks)} {rank_auc:.2f}\n' \
-             f'{dataset} {embedding_size} {ftop10:.2f} {ftop100:.2f} {np.mean(franks):.2f} {np.median(franks)} {frank_auc:.2f}'
+    output = f'{embedding_size},{top10:.2f},{top100:.2f},{np.mean(ranks):.2f},{np.median(ranks)},{rank_auc:.2f}\n' \
+             f'{embedding_size},{ftop10:.2f},{ftop100:.2f},{np.mean(franks):.2f},{np.median(franks)},{frank_auc:.2f}'
     print(output)
     with open('output.txt', 'w+') as f:
         f.write(output)
 
 
-def compute_ranks(model, eval_data, prot_index, prot_dict, device, ranking_fn, train_labels=None, use_tqdm=False):
+def compute_ranks(model, eval_data, prot_index, prot_dict, device, train_labels=None, use_tqdm=False):
     top1 = 0.
     top10 = 0.
     top100 = 0.

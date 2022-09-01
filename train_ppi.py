@@ -22,6 +22,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
+    torch.manual_seed(38588)
+    np.random.seed(53121)
+
     dataset = 'yeast'
     wandb.init(project=f"ppi-{dataset}", entity="krr")
 
@@ -36,22 +39,22 @@ def main():
     valid_data = load_protein_data(dataset, 'val', classes, relations)
 
     embedding_dim = 200
+    num_neg = 3
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    # model = ELSoftplusBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=3, reg_factor=0.05)
+    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=3, reg_factor=0.05, num_neg=num_neg)
 
-    optimizer = optim.Adam(model.parameters(), lr=5e-3)
+    optimizer = optim.Adam(model.parameters(), lr=1e-2)
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)
     scheduler = None
     model = model.to(device)
     out_folder = f'data/PPI/{dataset}/{model.name}'
-    train(model, train_data, valid_data, classes, optimizer, scheduler, out_folder)
+    train(model, train_data, valid_data, classes, optimizer, scheduler, out_folder, num_neg)
 
     print('Computing test scores...')
     evaluate(dataset, embedding_dim)
 
 
-def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_epochs=7000, val_freq=100):
+def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_neg, num_epochs=7000, val_freq=100):
     model.train()
     wandb.watch(model)
 
@@ -64,13 +67,7 @@ def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder
 
     try:
         for epoch in trange(num_epochs):
-            nf3 = train_data['nf3']
-            randoms = np.random.choice(train_data['prot_ids'], size=(nf3.shape[0], 2))
-            randoms = torch.from_numpy(randoms)
-            new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
-            new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
-            new_neg = torch.cat([new_tails, new_heads], dim=0)
-            train_data['nf3_neg'] = new_neg
+            sample_negatives(train_data, num_neg)
 
             re = model(train_data)
             loss = sum(re)
@@ -78,8 +75,7 @@ def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder
                 print('epoch:', epoch, 'loss:', round(loss.item(), 3))
             if epoch % val_freq == 0 and val_data is not None:
                 ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-                    compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device,
-                                  model.ranking_fn)
+                    compute_ranks(model.to_loaded_model(), val_data[:1000], prot_index, prot_dict, model.device)
                 ranks = ranks.cpu().numpy()
                 wandb.log({'top10': top10, 'top100': top100, 'mean_rank': np.mean(ranks),
                            'median_rank': np.median(ranks)}, commit=False)
@@ -104,6 +100,16 @@ def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder
     print(f'Best epoch: {best_epoch}')
     model.save(out_folder)
 
+
+def sample_negatives(data, num_neg):
+    for i in range(num_neg):
+        nf3 = data['nf3']
+        randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
+        randoms = torch.from_numpy(randoms)
+        new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
+        new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
+        new_neg = torch.cat([new_tails, new_heads], dim=0)
+        data[f'nf3_neg{i}'] = new_neg
 
 if __name__ == '__main__':
     main()
