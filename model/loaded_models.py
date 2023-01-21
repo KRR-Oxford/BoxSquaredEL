@@ -20,7 +20,9 @@ class LoadedModel(ABC):
             'boxsqel': BoxSqELLoadedModel,
             'elbe': ElbeLoadedModel,
             'elbe+': ElbeLoadedModel,
-            'elem': ElbeLoadedModel
+            'elem': ElbeLoadedModel,
+            'EmELpp': ElbeLoadedModel,
+            'boxel': BoxELLoadedModel
         }
         return model_dict[name].load(folder, embedding_size, device, best)
 
@@ -60,4 +62,25 @@ class ElbeLoadedModel(LoadedModel):
         suffix = '_best' if best else ''
         model.class_embeds = torch.from_numpy(np.load(f'{folder}/class_embeds{suffix}.npy')).to(device)
         model.relation_embeds = torch.from_numpy(np.load(f'{folder}/relations{suffix}.npy')).to(device)
+        return model
+
+
+class BoxELLoadedModel(LoadedModel):
+    min_embedding: torch.Tensor
+    delta_embedding: torch.Tensor
+    relation_embedding: torch.Tensor
+    scaling_embedding: torch.Tensor
+
+    def is_translational(self):
+        return False
+
+    @staticmethod
+    def load(folder, embedding_size, device, best=False):
+        model = BoxELLoadedModel()
+        model.embedding_size = embedding_size
+        suffix = '_best' if best else ''
+        model.min_embedding = torch.from_numpy(np.load(f'{folder}/min_embeds{suffix}.npy')).to(device)
+        model.delta_embedding = torch.from_numpy(np.load(f'{folder}/delta_embeds{suffix}.npy')).to(device)
+        model.relation_embedding = torch.from_numpy(np.load(f'{folder}/rel_embeds{suffix}.npy')).to(device)
+        model.scaling_embedding = torch.from_numpy(np.load(f'{folder}/scaling_embeds{suffix}.npy')).to(device)
         return model

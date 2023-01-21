@@ -6,8 +6,10 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 from model.ElbePlus import ElbePlus
 from model.Elem import Elem
+from model.EmELpp import EmELpp
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Elbe import Elbe
+from model.BoxEL import BoxEL
 from model.BoxSquaredEL import BoxSquaredEL
 from utils.data_loader import DataLoader
 import logging
@@ -35,7 +37,7 @@ def run(use_wandb=True):
     num_neg = 2
 
     if use_wandb:
-        wandb.init(project=f"{dataset}-{task}", entity="krr")
+        wandb.init(project=f"{dataset}-{task}-23", entity="krr")
     else:
         wandb.init(mode="disabled")
 
@@ -46,10 +48,12 @@ def run(use_wandb=True):
     val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
     print('Loaded data.')
-    # model = Elem(device, classes, len(relations), embedding_dim, margin=0.05)
+    # model = Elem(device, classes, len(relations), embedding_dim, margin=0.00)
+    # model = EmELpp(device, classes, len(relations), embedding_dim, margin=0.05)
     # model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
-    model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
-    # model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
+    # model = BoxEL(device, classes, len(relations), embedding_dim)
+    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
+    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 

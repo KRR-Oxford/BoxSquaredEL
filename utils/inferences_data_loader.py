@@ -32,14 +32,38 @@ class InferencesDataLoader(DataLoader):
         filename = self.get_file_dir(dataset) + f'{dataset}_norm_full.owl'
         classes = {}
         relations = {}
-        data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
+        data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': [], 'role_inclusion': [], 'role_chain': []}
         with open(filename) as f:
             for line in f:
                 if line.startswith('FunctionalObjectProperty'):
                     continue
-                # Ignore SubObjectPropertyOf
                 if line.startswith('SubObjectPropertyOf'):
-                    continue
+                    line = line.strip()[20:-1]
+                    if line.startswith('ObjectPropertyChain'):
+                        line_chain = line.strip()[20:]
+                        line1 = line_chain.split(")")
+                        line10 = line1[0].split()
+                        if len(line10) == 0:
+                            continue
+                        r1 = line10[0].strip()
+                        r2 = line10[1].strip()
+                        r3 = line1[1].strip()
+                        if r1 not in relations:
+                            relations[r1] = len(relations)
+                        if r2 not in relations:
+                            relations[r2] = len(relations)
+                        if r3 not in relations:
+                            relations[r3] = len(relations)
+                        data['role_chain'].append((relations[r1], relations[r2], relations[r3]))
+                    else:
+                        it = line.split(' ')
+                        r1 = it[0]
+                        r2 = it[1]
+                        if r1 not in relations:
+                            relations[r1] = len(relations)
+                        if r2 not in relations:
+                            relations[r2] = len(relations)
+                        data['role_inclusion'].append((relations[r1], relations[r2]))
                 # Ignore SubClassOf()
                 line = line.strip()[11:-1]
                 if not line:
@@ -126,6 +150,8 @@ class InferencesDataLoader(DataLoader):
         data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
         data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
         data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
+        data['role_inclusion'] = torch.tensor(data['role_inclusion'], dtype=torch.int32)
+        data['role_chain'] = torch.tensor(data['role_chain'], dtype=torch.int32)
         data['nf3_neg'] = torch.tensor([], dtype=torch.int32)
         data['prot_ids'] = class_ids
 

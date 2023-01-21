@@ -132,6 +132,7 @@ dmypy.json
 data/
 data-old/
 data.zip
+data-bkp
 
 .idea/misc.xml
 wandb
@@ -145,3 +146,7 @@ avg_output.*
 avg_output_csv.*
 nohup.out
 family/out
+
+boxe_result
+transe_result
+*.tsv

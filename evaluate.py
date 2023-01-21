@@ -3,13 +3,15 @@ from collections import Counter
 import logging
 import numpy as np
 import torch
+import torch.nn.functional as F
 import math
 from tqdm import trange
 
 from ranking_result import RankingResult
 from utils.utils import get_device
 from utils.data_loader import DataLoader
-from model.loaded_models import LoadedModel
+from model.loaded_models import LoadedModel, BoxELLoadedModel
+from model.BoxEL import BoxEL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -97,6 +99,9 @@ def compute_ranks(model, eval_data, num_classes, nf, device, batch_size=100, use
         fun = f'compute_{nf}_ranks'
         if model.is_translational() and nf in ['nf3', 'nf4']:
             fun += '_translational'
+        elif isinstance(model, BoxELLoadedModel):
+            fun += '_boxel'
+
         batch_ranks = globals()[fun](model, batch_data, current_batch_size)  # call the correct function based on NF
         top1 += (batch_ranks <= 1).sum()
         top10 += (batch_ranks <= 10).sum()
@@ -115,6 +120,29 @@ def compute_nf1_ranks(model, batch_data, batch_size):
 
     dists = batch_centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
+    dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c <= c
+    return dists_to_ranks(dists, batch_data[:, 1])
+
+
+def compute_nf1_ranks_boxel(model, batch_data, batch_size):
+    batch_mins = model.min_embedding[batch_data[:, 0]]
+    batch_deltas = model.delta_embedding[batch_data[:, 0]]
+    batch_maxs = batch_mins + torch.exp(batch_deltas)
+
+    all_mins = torch.tile(model.min_embedding, (batch_size, 1, 1))  # 100x23142x200
+    all_maxs = torch.tile(model.min_embedding + torch.exp(model.delta_embedding), (batch_size, 1, 1))
+
+    inter_min = torch.max(batch_mins[:, None, :], all_mins)
+    inter_max = torch.min(batch_maxs[:, None, :], all_maxs)
+    inter_delta = inter_max - inter_min
+    inter_volumes = F.softplus(inter_delta).prod(2)
+    log_intersection = torch.log(torch.clamp(inter_volumes, 1e-10, 1e4))
+
+    batch_volumes = F.softplus(batch_maxs - batch_mins).prod(1)
+    log_box2 = torch.log(torch.clamp(batch_volumes, 1e-10, 1e4))
+
+    probs = torch.exp(log_intersection - log_box2[:, None])  # 100x23142
+    dists = 1 - probs
     dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c <= c
     return dists_to_ranks(dists, batch_data[:, 1])
 

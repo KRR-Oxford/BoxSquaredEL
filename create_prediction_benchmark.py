@@ -81,7 +81,7 @@ class Split:
         self.nf4 = self.nf4[mask]
 
 
-dataset = 'ANATOMY'
+dataset = 'GALEN'
 data_loader = DataLoader.from_task('inferences')
 data, classes, relations = data_loader.load_data(dataset)
 
