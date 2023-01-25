@@ -32,4 +32,4 @@ We also provide the script `run_many_seeds.py`, which executes the configuration
 
 * **Out of memory**. If you run out of memory, this is most likely due to a too large batch size during rank computation. Try decreasing the `batch_size` default argument in `evaluate.py` (or `evaluate_ppi_boxsqel.py`).
 
-If you encounter any other issues or have general questions about the code, feel free to send me a message at `firstname.lastname@keble.ox.ac.uk`.
+If you encounter any other issues or have general questions about the code, feel free to send me a message at `mathias (dot) jackermeier (at) keble (dot) ox (dot) ac (dot) uk`.
