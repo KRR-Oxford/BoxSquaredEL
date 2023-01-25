@@ -131,7 +131,6 @@ dmypy.json
 # data
 data/
 data-old/
-data.zip
 data-bkp
 
 .idea/misc.xml
