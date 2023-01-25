@@ -4,7 +4,7 @@ This is the implementation of the paper *Box<sup>2</sup>EL: Concept and Role Box
 
 ## Requirements
 
-This implementation requires a working installation of PyTorch 1.12.0 (optionally with GPU support for faster training and inference). You will additionally need the following Python packages: `numpy==1.22.3`, `tqdm==4.64.0`, `wandb==0.13.9`.
+This implementation requires a working installation of PyTorch 1.12.0 (optionally with GPU support for faster training and inference). You will additionally need the following Python packages: `joblib==1.1.0`, `numpy==1.22.3`, `tqdm==4.64.0`, `wandb==0.13.9`.
 
 ## Data
 
