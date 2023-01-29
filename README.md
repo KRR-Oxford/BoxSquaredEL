@@ -1,6 +1,6 @@
 # Box<sup>2</sup>EL: Concept and Role Box Embeddings for the Description Logic EL++
 
-This is the implementation of the paper *Box<sup>2</sup>EL: Concept and Role Box Embeddings for the Description Logic EL++* ([https://arxiv.org/abs/2301.11118](https://arxiv.org/abs/2301.11118)). All results given in the paper can be verified by running the appropiate model with the hyperparameters listed in the appendix on the relevant datasets, which are included in the `data` folder.
+This is the implementation for the paper *Box<sup>2</sup>EL: Concept and Role Box Embeddings for the Description Logic EL++* ([https://arxiv.org/abs/2301.11118](https://arxiv.org/abs/2301.11118)). All results given in the paper can be verified by running the appropiate model with the hyperparameters listed in the appendix on the relevant datasets, which are included in the `data` folder.
 
 ## Requirements
 
