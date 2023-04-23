@@ -7,7 +7,7 @@ from model.Elbe import Elbe
 from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.BoxSquaredEL import BoxSquaredEL
 from utils.ppi_data_loader import load_data, load_protein_data
-from evaluate_ppi_boxsqel import compute_ranks, load_protein_index, evaluate
+from evaluate_ppi import compute_ranks, load_protein_index, evaluate
 import logging
 import torch
 import numpy as np
@@ -22,15 +22,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    torch.manual_seed(38588)
-    np.random.seed(53121)
+    torch.manual_seed(42)
+    np.random.seed(12)
 
     dataset = 'yeast'
-    wandb.init(project=f"ppi-{dataset}", entity="krr")
+    wandb.init(project='BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': 'ppi'})
 
     device = get_device()
 
-    # training procedure
     train_data, classes, relations = load_data(dataset)
     with open(f'data/PPI/{dataset}/classes.json', 'w+') as f:
         json.dump(classes, f)
@@ -41,7 +40,8 @@ def main():
     embedding_dim = 200
     num_neg = 3
     # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=3, reg_factor=0.05, num_neg=num_neg)
+    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=3, reg_factor=0.05,
+                         num_neg=num_neg)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)
@@ -54,7 +54,8 @@ def main():
     evaluate(dataset, embedding_dim)
 
 
-def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_neg, num_epochs=7000, val_freq=100):
+def train(model, train_data, val_data, classes, optimizer, scheduler, out_folder, num_neg, num_epochs=7000,
+          val_freq=100):
     model.train()
     wandb.watch(model)
 
@@ -110,6 +111,7 @@ def sample_negatives(data, num_neg):
         new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
         new_neg = torch.cat([new_tails, new_heads], dim=0)
         data[f'nf3_neg{i}'] = new_neg
+
 
 if __name__ == '__main__':
     main()

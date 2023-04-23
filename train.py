@@ -37,7 +37,7 @@ def run(use_wandb=True):
     num_neg = 2
 
     if use_wandb:
-        wandb.init(project=f'BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': task})
+        wandb.init(project='BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': task})
     else:
         wandb.init(mode='disabled')
 
