@@ -17,14 +17,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('ANATOMY', 'inferences', model_name='boxsqel', embedding_size=200, ranking_fn='l2', beta=1, best=True)
+    evaluate('GALEN', 'inferences', model_name='boxsqel', embedding_size=200, best=True)
 
 
 def evaluate(dataset, task, model_name, embedding_size, best=True):
     device = get_device()
 
     model = LoadedModel.from_name(model_name, f'data/{dataset}/{task}/{model_name}', embedding_size, device, best)
-    num_classes = model.class_embeds.shape[0]
+    num_classes = model.class_embeds.shape[0] if model_name != 'boxel' else model.min_embedding.shape[0]
 
     print('Loading data')
     data_loader = DataLoader.from_task(task)
@@ -32,7 +32,6 @@ def evaluate(dataset, task, model_name, embedding_size, best=True):
     assert (len(classes) == num_classes)
     test_data = data_loader.load_test_data(dataset, classes)
 
-    # acc = compute_accuracy(model.class_embeds, embedding_size, test_data, device)
     nfs = ['nf1', 'nf2', 'nf3', 'nf4'] if task == 'prediction' else ['nf1']
     rankings = []
     for nf in nfs:

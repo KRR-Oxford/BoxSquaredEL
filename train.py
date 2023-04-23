@@ -37,9 +37,9 @@ def run(use_wandb=True):
     num_neg = 2
 
     if use_wandb:
-        wandb.init(project=f"{dataset}-{task}-23", entity="krr")
+        wandb.init(project=f'BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': task})
     else:
-        wandb.init(mode="disabled")
+        wandb.init(mode='disabled')
 
     device = get_device()
     data_loader = DataLoader.from_task(task)
@@ -54,6 +54,7 @@ def run(use_wandb=True):
     # model = BoxEL(device, classes, len(relations), embedding_dim)
     # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
     model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
+    wandb.config['model'] = model.name
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 

@@ -162,13 +162,13 @@ class OldDataLoader(DataLoader):
             data['nf3_neg0'].append((c, r, x))
             data['nf3_neg0'].append((y, r, d))
 
-        data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)[:, [0, 2]]
-        data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
-        data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)
-        data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
-        data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
-        data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
-        data['nf3_neg0'] = torch.tensor(data['nf3_neg0'], dtype=torch.int32)
+        data['nf1'] = torch.tensor(data['nf1'], dtype=torch.long)[:, [0, 2]]
+        data['nf2'] = torch.tensor(data['nf2'], dtype=torch.long)
+        data['nf3'] = torch.tensor(data['nf3'], dtype=torch.long)
+        data['nf4'] = torch.tensor(data['nf4'], dtype=torch.long)
+        data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.long)
+        data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.long)
+        data['nf3_neg0'] = torch.tensor(data['nf3_neg0'], dtype=torch.long)
         data['prot_ids'] = prot_ids
 
         random_state = np.random.get_state()

@@ -149,3 +149,4 @@ family/out
 boxe_result
 transe_result
 *.tsv
+*_kg.py

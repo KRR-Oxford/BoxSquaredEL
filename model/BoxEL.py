@@ -31,7 +31,7 @@ def l2_side_regularizer(box, log_scale: bool = True):
 
 class BoxEL(nn.Module):
 
-    def __init__(self, device, class_, relationNum, embedding_dim, margin=0):
+    def __init__(self, device, class_, relationNum, embedding_dim):
         super(BoxEL, self).__init__()
 
         min_init_value = [1e-4, 0.2]
