@@ -8,30 +8,35 @@ from model.loaded_models import BoxSqELLoadedModel
 
 
 class BoxSquaredEL(nn.Module):
-    def __init__(self, device, class_, relation_num, embedding_dim, margin=0, neg_dist=2, reg_factor=0.05, num_neg=2,
-                 loss='mse', vis_loss=False):
+    def __init__(self, device, embedding_dim, num_classes, num_roles, num_individuals=0, margin=0, neg_dist=2,
+                 reg_factor=0.05, num_neg=2, batch_size=512, vis_loss=False):
         super(BoxSquaredEL, self).__init__()
 
         self.name = 'boxsqel'
-        self.margin = margin
-        self.neg_dist = neg_dist
-        self.class_num = len(class_)
-        self.class_ = class_
-        self.relation_num = relation_num
         self.device = device
         self.embedding_dim = embedding_dim
+        self.num_classes = num_classes
+        self.num_roles = num_roles
+        self.num_individuals = num_individuals
+        self.margin = margin
+        self.neg_dist = neg_dist
         self.reg_factor = reg_factor
-        self.loss = loss
-        self.negative_sampling = True
         self.num_neg = num_neg
+        self.batch_size = batch_size
         self.vis_loss = vis_loss
 
-        self.classEmbeddingDict = self.init_embeddings(self.class_num, embedding_dim * 2)
-        self.bumps = self.init_embeddings(self.class_num, embedding_dim)
-        self.relation_heads = self.init_embeddings(relation_num, embedding_dim * 2)
-        self.relation_tails = self.init_embeddings(relation_num, embedding_dim * 2)
+        self.negative_sampling = True
+
+        self.class_embeds = self.init_embeddings(self.num_classes, embedding_dim * 2)
+        self.individual_embeds = self.init_embeddings(self.num_individuals, embedding_dim)
+        self.bumps = self.init_embeddings(self.num_classes, embedding_dim)
+        self.individual_bumps = self.init_embeddings(self.num_individuals, embedding_dim)
+        self.relation_heads = self.init_embeddings(num_roles, embedding_dim * 2)
+        self.relation_tails = self.init_embeddings(num_roles, embedding_dim * 2)
 
     def init_embeddings(self, num_embeddings, dim, min=-1, max=1, normalise=True):
+        if num_embeddings == 0:
+            return None
         embeddings = nn.Embedding(num_embeddings, dim)
         nn.init.uniform_(embeddings.weight, a=min, b=max)
         if normalise:
@@ -40,6 +45,23 @@ class BoxSquaredEL(nn.Module):
 
     def get_boxes(self, embedding):
         return Boxes(embedding[:, :self.embedding_dim], torch.abs(embedding[:, self.embedding_dim:]))
+
+    def get_class_boxes(self, nf_data, *indices):
+        return (self.get_boxes(self.class_embeds(nf_data[:, i])) for i in indices)
+
+    def get_relation_boxes(self, nf_data, *indices):
+        boxes = []
+        for i in indices:
+            boxes.append(self.get_boxes(self.relation_heads(nf_data[:, i])))
+            boxes.append(self.get_boxes(self.relation_tails(nf_data[:, i])))
+        return tuple(boxes)
+
+    def get_individual_boxes(self, nf_data, *indices):
+        """Returns a representation of individuals as boxes with an offset/volume of 0."""
+        return (
+            Boxes(self.individual_embeds(nf_data[:, i]), torch.zeros((nf_data.shape[0], self.embedding_dim)))
+            for i in indices
+        )
 
     # boxes1 <= boxes2
     def inclusion_loss(self, boxes1, boxes2):
@@ -59,169 +81,113 @@ class BoxSquaredEL(nn.Module):
                              [-1, 1])
         return dist
 
-    def nf1_loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 1])
-        c_boxes = self.get_boxes(c)
-        d_boxes = self.get_boxes(d)
+    def nf1_loss(self, nf1_data):
+        c_boxes, d_boxes = self.get_class_boxes(nf1_data, 0, 1)
         return self.inclusion_loss(c_boxes, d_boxes)
 
-    def nf2_loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 1])
-        e = self.classEmbeddingDict(input[:, 2])
-
-        c_boxes = self.get_boxes(c)
-        d_boxes = self.get_boxes(d)
-        e_boxes = self.get_boxes(e)
-
+    def nf2_loss(self, nf2_data):
+        c_boxes, d_boxes, e_boxes = self.get_class_boxes(nf2_data, 0, 1, 2)
         intersection, lower, upper = c_boxes.intersect(d_boxes)
         return self.inclusion_loss(intersection, e_boxes) + torch.linalg.norm(relu(lower - upper), axis=1)
 
-    def nf2_disjoint_loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 1])
-        c_boxes = self.get_boxes(c)
-        d_boxes = self.get_boxes(d)
+    def nf2_disjoint_loss(self, disjoint_data):
+        c_boxes, d_boxes = self.get_class_boxes(disjoint_data, 0, 1)
         return self.disjoint_loss(c_boxes, d_boxes)
 
-    def nf3_loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 2])
-        c_bumps = self.bumps(input[:, 0])
-        d_bumps = self.bumps(input[:, 2])
-        r_heads = self.relation_heads(input[:, 1])
-        r_tails = self.relation_tails(input[:, 1])
-
-        c_boxes = self.get_boxes(c)
-        d_boxes = self.get_boxes(d)
-        head_boxes = self.get_boxes(r_heads)
-        tail_boxes = self.get_boxes(r_tails)
+    def nf3_loss(self, nf3_data):
+        c_boxes, d_boxes = self.get_class_boxes(nf3_data, 0, 2)
+        c_bumps, d_bumps = self.bumps(nf3_data[:, 0]), self.bumps(nf3_data[:, 2])
+        head_boxes, tail_boxes = self.get_relation_boxes(nf3_data, 1)
 
         dist1 = self.inclusion_loss(c_boxes.translate(d_bumps), head_boxes)
         dist2 = self.inclusion_loss(d_boxes.translate(c_bumps), tail_boxes)
         return (dist1 + dist2) / 2
 
-    def nf3_neg_loss(self, input):
-        c = self.classEmbeddingDict(input[:, 0])
-        d = self.classEmbeddingDict(input[:, 2])
-        c_bumps = self.bumps(input[:, 0])
-        d_bumps = self.bumps(input[:, 2])
-        r_heads = self.relation_heads(input[:, 1])
-        r_tails = self.relation_tails(input[:, 1])
+    def role_assertion_loss(self, data):
+        a_boxes, b_boxes = self.get_individual_boxes(data, 1, 2)
+        a_bumps, b_bumps = self.individual_bumps(data[:, 1]), self.individual_bumps(data[:, 2])
+        head_boxes, tail_boxes = self.get_relation_boxes(data, 0)
 
-        c_boxes = self.get_boxes(c)
-        d_boxes = self.get_boxes(d)
-        head_boxes = self.get_boxes(r_heads)
-        tail_boxes = self.get_boxes(r_tails)
+        dist1 = self.inclusion_loss(a_boxes.translate(b_bumps), head_boxes)
+        dist2 = self.inclusion_loss(b_boxes.translate(a_bumps), tail_boxes)
+        return (dist1 + dist2) / 2
+
+    def role_assertion_neg_loss(self, data):
+        pass
+
+    def concept_assertion_loss(self, data):
+        pass
+
+    def nf3_neg_loss(self, neg_data):
+        c_boxes, d_boxes = self.get_class_boxes(neg_data, 0, 2)
+        c_bumps, d_bumps = self.bumps(neg_data[:, 0]), self.bumps(neg_data[:, 2])
+        head_boxes, tail_boxes = self.get_relation_boxes(neg_data, 1)
 
         return self.neg_loss(c_boxes.translate(d_bumps), head_boxes), \
                self.neg_loss(d_boxes.translate(c_bumps), tail_boxes)
 
-    def nf4_loss(self, input):
-        d = self.classEmbeddingDict(input[:, 2])
-        c_bumps = self.bumps(input[:, 1])
-        r_heads = self.relation_heads(input[:, 0])
-
-        d_boxes = self.get_boxes(d)
-        head_boxes = self.get_boxes(r_heads)
+    def nf4_loss(self, nf4_data):
+        d_boxes, = self.get_class_boxes(nf4_data, 2)
+        c_bumps = self.bumps(nf4_data[:, 1])
+        head_boxes, _ = self.get_relation_boxes(nf4_data, 0)
 
         return self.inclusion_loss(head_boxes.translate(-c_bumps), d_boxes)
 
-    def forward(self, input):
-        batch = 512
-        criterion = torch.nn.BCEWithLogitsLoss()
+    def get_nf_data_batch(self, train_data, nf_key):
+        rand_index = np.random.choice(len(train_data[nf_key]), size=self.batch_size)
+        return train_data[nf_key][rand_index].to(self.device)
 
-        rand_index = np.random.choice(len(input['nf1']), size=batch)
-        nf1_data = input['nf1'][rand_index]
-        nf1_data = nf1_data.to(self.device)
-        loss1 = self.nf1_loss(nf1_data)
-        if self.loss == 'mse':
-            loss1 = loss1.square().mean()
-        elif self.loss == 'bce':
-            loss1 = criterion(-loss1, torch.ones_like(loss1))
+    def get_negative_sample_batch(self, train_data):
+        rand_index = np.random.choice(len(train_data['nf3_neg0']), size=self.batch_size)
+        neg_data = train_data['nf3_neg0'][rand_index]
+        for i in range(1, self.num_neg):
+            neg_data2 = train_data[f'nf3_neg{i}'][rand_index]
+            neg_data = torch.cat([neg_data, neg_data2], dim=0)
+        return neg_data.to(self.device)
 
-        # nf2
-        if len(input['nf2']) == 0:
-            loss2 = 0
-        else:
-            rand_index = np.random.choice(len(input['nf2']), size=batch)
-            nf2_data = input['nf2'][rand_index]
-            nf2_data = nf2_data.to(self.device)
-            loss2 = self.nf2_loss(nf2_data)
-            if self.loss == 'mse':
-                loss2 = loss2.square().mean()
-            elif self.loss == 'bce':
-                loss2 = criterion(-loss2, torch.ones_like(loss2))
+    def forward(self, train_data):
+        loss = 0
 
-        # nf3
-        rand_index = np.random.choice(len(input['nf3']), size=batch)
-        nf3_data = input['nf3'][rand_index]
-        nf3_data = nf3_data.to(self.device)
-        loss3 = self.nf3_loss(nf3_data)
-        if self.loss == 'mse':
-            loss3 = loss3.square().mean()
-        elif self.loss == 'bce':
-            loss3 = criterion(-loss3, torch.ones_like(loss3))
+        nf1_data = self.get_nf_data_batch(train_data, 'nf1')
+        loss += self.nf1_loss(nf1_data).square().mean()
 
-        # nf4
-        if len(input['nf4']) == 0:
-            loss4 = 0
-        else:
-            rand_index = np.random.choice(len(input['nf4']), size=batch)
-            nf4_data = input['nf4'][rand_index]
-            nf4_data = nf4_data.to(self.device)
-            loss4 = self.nf4_loss(nf4_data)
-            if self.loss == 'mse':
-                loss4 = loss4.square().mean()
-            elif self.loss == 'bce':
-                loss4 = criterion(-loss4, torch.ones_like(loss4))
+        if len(train_data['nf2']) > 0:
+            nf2_data = self.get_nf_data_batch(train_data, 'nf2')
+            loss += self.nf2_loss(nf2_data).square().mean()
 
-        # disJoint
-        if len(input['disjoint']) == 0:
-            disjoint_loss = 0
-        else:
-            rand_index = np.random.choice(len(input['disjoint']), size=batch)
-            disjoint_data = input['disjoint'][rand_index]
-            disjoint_data = disjoint_data.to(self.device)
-            disjoint_loss = self.nf2_disjoint_loss(disjoint_data)
-            if self.loss == 'mse':
-                disjoint_loss = disjoint_loss.square().mean()
-            elif self.loss == 'bce':
-                disjoint_loss = criterion(-disjoint_loss, torch.zeros_like(disjoint_loss))
+        nf3_data = self.get_nf_data_batch(train_data, 'nf3')
+        loss += self.nf3_loss(nf3_data).square().mean()
 
-        if self.num_neg <= 0:
-            neg_loss = 0
-        else:
-            rand_index = np.random.choice(len(input['nf3_neg0']), size=batch)
-            neg_data = input['nf3_neg0'][rand_index]
-            for i in range(1, self.num_neg):
-                neg_data2 = input[f'nf3_neg{i}'][rand_index]
-                neg_data = torch.cat([neg_data, neg_data2], dim=0)
-            neg_data = neg_data.to(self.device)
+        if len(train_data['nf4']) > 0:
+            nf4_data = self.get_nf_data_batch(train_data, 'nf4')
+            loss += self.nf4_loss(nf4_data).square().mean()
+
+        if len(train_data['disjoint']) > 0:
+            disjoint_data = self.get_nf_data_batch(train_data, 'disjoint')
+            loss += self.nf2_disjoint_loss(disjoint_data).square().mean()
+
+        if self.num_neg > 0:
+            neg_data = self.get_negative_sample_batch(train_data)
             neg_loss1, neg_loss2 = self.nf3_neg_loss(neg_data)
-            if self.loss == 'mse':
-                neg_loss = (self.neg_dist - neg_loss1).square().mean() + \
-                           (self.neg_dist - neg_loss2).square().mean()
-            elif self.loss == 'bce':
-                neg_loss = criterion(-neg_loss1, torch.zeros_like(neg_loss1)) + \
-                           criterion(-neg_loss2, torch.zeros_like(neg_loss2))
+            loss += (self.neg_dist - neg_loss1).square().mean() + (self.neg_dist - neg_loss2).square().mean()
 
-        reg_loss = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
+        if 'abox' in train_data:
+            abox = train_data['abox']
+            ra_data = self.get_nf_data_batch(abox, 'role_assertions')
+            loss += self.role_assertion_loss(ra_data).square().mean()
+
+        loss += self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
 
         if self.vis_loss:  # only used for plotting nice boxes
-            vis_loss = relu(.2 - torch.abs(self.classEmbeddingDict.weight[:, self.embedding_dim:]))
-            vis_loss = vis_loss.mean()
-        else:
-            vis_loss = 0
+            vis_loss = relu(.2 - torch.abs(self.class_embeds.weight[:, self.embedding_dim:]))
+            loss += vis_loss.mean()
 
-        total_loss = [loss1 + loss2 + disjoint_loss + loss3 + loss4 + neg_loss + reg_loss + vis_loss]
-        return total_loss
+        return loss
 
     def to_loaded_model(self):
         model = BoxSqELLoadedModel()
         model.embedding_size = self.embedding_dim
-        model.class_embeds = self.classEmbeddingDict.weight.detach()
+        model.class_embeds = self.class_embeds.weight.detach()
         model.bumps = self.bumps.weight.detach()
         model.relation_heads = self.relation_heads.weight.detach()
         model.relation_tails = self.relation_tails.weight.detach()
@@ -231,7 +197,7 @@ class BoxSquaredEL(nn.Module):
         if not os.path.exists(folder):
             os.makedirs(folder)
         suffix = '_best' if best else ''
-        np.save(f'{folder}/class_embeds{suffix}.npy', self.classEmbeddingDict.weight.detach().cpu().numpy())
+        np.save(f'{folder}/class_embeds{suffix}.npy', self.class_embeds.weight.detach().cpu().numpy())
         np.save(f'{folder}/bumps{suffix}.npy', self.bumps.weight.detach().cpu().numpy())
         np.save(f'{folder}/rel_heads{suffix}.npy', self.relation_heads.weight.detach().cpu().numpy())
         np.save(f'{folder}/rel_tails{suffix}.npy', self.relation_tails.weight.detach().cpu().numpy())

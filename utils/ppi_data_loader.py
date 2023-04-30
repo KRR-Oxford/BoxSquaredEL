@@ -9,27 +9,38 @@ def get_file_dir(dataset):
 
 
 @memory.cache
-def load_protein_data(dataset, folder, classes, relations):
+def load_protein_data(dataset, folder, proteins, relations):
     filename = f'{get_file_dir(dataset)}/{folder}/protein_links.txt'
     data = []
     rel = f'<http://interacts>'
+    assert rel in relations
     with open(filename, 'r') as f:
         for line in f:
             it = line.strip().split()
             id1 = f'<http://{it[0]}>'
             id2 = f'<http://{it[1]}>'
-            if id1 not in classes or id2 not in classes or rel not in relations:
+            if id1 not in proteins or id2 not in proteins:
                 continue
-            data.append((classes[id1], relations[rel], classes[id2]))
+            data.append((proteins[id1], relations[rel], proteins[id2]))
     return data
+
+
+def is_protein(cls):
+    return not cls.startswith('<http://purl.obolibrary.org/obo/GO_') and cls not in ['owl:Thing', 'owl:Nothing']
+
+
+def contains_any_proteins(classes):
+    return any([is_protein(cls) for cls in classes])
 
 
 @memory.cache
 def load_data(dataset):
     filename = f'{get_file_dir(dataset)}/train/{dataset}.owl'
     classes = {}
+    proteins = {}
     relations = {}
-    data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
+    data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': [],
+            'abox': {'role_assertions': [], 'concept_assertions': []}}
     with open(filename) as f:
         for line in f:
             # Ignore SubObjectPropertyOf
@@ -44,8 +55,10 @@ def load_data(dataset):
                 it = line.split(' ')
                 c = it[0][21:]
                 d = it[1][:-1]
-
                 e = it[2]
+
+                if contains_any_proteins([c, d, e]):
+                    continue
                 if c not in classes:
                     classes[c] = len(classes)
                 if d not in classes:
@@ -65,6 +78,9 @@ def load_data(dataset):
                 r = it[0][21:]
                 c = it[1][:-1]
                 d = it[2]
+
+                if contains_any_proteins([c, d]):
+                    continue
                 if c not in classes:
                     classes[c] = len(classes)
                 if d not in classes:
@@ -78,18 +94,41 @@ def load_data(dataset):
                 c = it[0]
                 r = it[1][21:]
                 d = it[2][:-1]
+
+                if r not in relations:
+                    relations[r] = len(relations)
+
+                if is_protein(c):
+                    if c not in proteins:
+                        proteins[c] = len(proteins)
+                    if is_protein(d):
+                        assert r == '<http://interacts>'
+                        if d not in proteins:
+                            proteins[d] = len(proteins)
+                        data['abox']['role_assertions'].append((relations[r], proteins[c], proteins[d]))
+                        continue
+                    else:
+                        assert r == '<http://hasFunction>'
+                        if d not in classes:
+                            classes[d] = len(classes)
+                        data['abox']['concept_assertions'].append((relations[r], classes[d], proteins[c]))
+                        continue
+                else:
+                    assert not is_protein(d) and r != '<http://interacts>'
+
                 if c not in classes:
                     classes[c] = len(classes)
                 if d not in classes:
                     classes[d] = len(classes)
-                if r not in relations:
-                    relations[r] = len(relations)
                 data['nf3'].append((classes[c], relations[r], classes[d]))
             else:
                 # C SubClassOf D
                 it = line.split(' ')
                 c = it[0]
                 d = it[1]
+
+                if contains_any_proteins([c, d]):
+                    continue
                 if c not in classes:
                     classes[c] = len(classes)
                 if d not in classes:
@@ -102,38 +141,31 @@ def load_data(dataset):
     if 'owl:Nothing' not in classes:
         classes['owl:Nothing'] = len(classes)
 
-    prot_ids = []
-    for k, v in classes.items():
-        if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
-            prot_ids.append(v)
-    prot_ids = np.array(prot_ids)
+    assert not any([is_protein(cls) for cls in classes])
 
-    # Add at least one disjointness axiom if there is 0
-    if len(data['disjoint']) == 0:
-        nothing = classes['owl:Nothing']
-        n_prots = len(prot_ids)
-        for i in range(10):
-            it = np.random.choice(n_prots, 2)
-            if it[0] != it[1]:
-                data['disjoint'].append(
-                    (prot_ids[it[0]], prot_ids[it[1]], nothing))
-                break
-
-    data['nf1'] = torch.tensor(data['nf1'], dtype=torch.int32)
-    data['nf2'] = torch.tensor(data['nf2'], dtype=torch.int32)
-    data['nf3'] = torch.tensor(data['nf3'], dtype=torch.int32)
-    data['nf4'] = torch.tensor(data['nf4'], dtype=torch.int32)
-    data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.int32)
-    data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.int32)
-    data['nf3_neg'] = torch.tensor([], dtype=torch.int32)
-    data['prot_ids'] = prot_ids
+    data['nf1'] = torch.tensor(data['nf1'], dtype=torch.long)
+    data['nf2'] = torch.tensor(data['nf2'], dtype=torch.long)
+    data['nf3'] = torch.tensor(data['nf3'], dtype=torch.long)
+    data['nf4'] = torch.tensor(data['nf4'], dtype=torch.long)
+    data['disjoint'] = torch.tensor(data['disjoint'], dtype=torch.long)
+    data['top'] = torch.tensor([classes['owl:Thing']], dtype=torch.long)
+    data['nf3_neg'] = torch.tensor([], dtype=torch.long)
+    data['abox']['role_assertions'] = torch.tensor(data['abox']['role_assertions'], dtype=torch.long)
+    data['abox']['concept_assertions'] = torch.tensor(data['abox']['concept_assertions'], dtype=torch.long)
 
     random_state = np.random.get_state()
-    for key, val in data.items():
-        index = np.arange(len(data[key]))
-        np.random.seed(100)
-        np.random.shuffle(index)
-        data[key] = val[index]
+    np.random.seed(100)
+    for key in data:
+        if key == 'abox':
+            data[key]['role_assertions'] = shuffle_tensor(data[key]['role_assertions'])
+            data[key]['concept_assertions'] = shuffle_tensor(data[key]['concept_assertions'])
+        else:
+            data[key] = shuffle_tensor(data[key])
     np.random.set_state(random_state)
+    return data, classes, proteins, relations
 
-    return data, classes, relations
+
+def shuffle_tensor(arr):
+    index = np.arange(len(arr))
+    np.random.shuffle(index)
+    return arr[index]

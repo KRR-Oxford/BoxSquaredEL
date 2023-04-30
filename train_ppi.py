@@ -24,24 +24,33 @@ logging.basicConfig(level=logging.INFO)
 def main():
     torch.manual_seed(42)
     np.random.seed(12)
+    run()
 
+
+def run(use_wandb=False):
     dataset = 'yeast'
-    wandb.init(project='BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': 'ppi'})
+
+    if use_wandb:
+        wandb.init(project='BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': 'ppi'})
+    else:
+        wandb.init(mode='disabled')
 
     device = get_device()
 
-    train_data, classes, relations = load_data(dataset)
+    train_data, classes, proteins, relations = load_data(dataset)
     with open(f'data/PPI/{dataset}/classes.json', 'w+') as f:
         json.dump(classes, f)
+    with open(f'data/PPI/{dataset}/proteins.json', 'w+') as f:
+        json.dump(proteins, f)
     with open(f'data/PPI/{dataset}/relations.json', 'w+') as f:
         json.dump(relations, f)
-    valid_data = load_protein_data(dataset, 'val', classes, relations)
+    valid_data = load_protein_data(dataset, 'val', proteins, relations)
 
     embedding_dim = 200
     num_neg = 3
-    # model = ELBoxModel(device, classes, len(relations), embedding_dim=embedding_dim, batch=512, margin=0.05)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=3, reg_factor=0.05,
-                         num_neg=num_neg)
+    model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations), len(proteins), margin=0.05, neg_dist=3,
+                         reg_factor=0.05, num_neg=num_neg)
+    wandb.config['model'] = model.name
 
     optimizer = optim.Adam(model.parameters(), lr=1e-2)
     # scheduler = MultiStepLR(optimizer, milestones=[2500], gamma=0.1)

@@ -53,7 +53,7 @@ def run(use_wandb=True):
     # model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
     # model = BoxEL(device, classes, len(relations), embedding_dim)
     # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
-    model = BoxSquaredEL(device, classes, len(relations), embedding_dim, margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
+    model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations), margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
     wandb.config['model'] = model.name
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
@@ -89,11 +89,8 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
             if model.negative_sampling:
                 sample_negatives(data, num_neg)
 
-            re = model(data)
-            loss = sum(re)
+            loss = model(data)
             if epoch % val_freq == 0 and val_data is not None:
-                # acc = compute_accuracy(embeds, model.embedding_dim, val_data, model.device)
-                # wandb.log({'acc': acc}, commit=False)
                 ranking = compute_ranks(model.to_loaded_model(), val_data, num_classes, 'nf1', model.device)
                 wandb.log({'top10': ranking.top10 / len(ranking), 'top100': ranking.top100 / len(ranking),
                            'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
