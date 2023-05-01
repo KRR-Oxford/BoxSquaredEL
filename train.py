@@ -27,23 +27,38 @@ logging.basicConfig(level=logging.INFO)
 def main():
     torch.manual_seed(42)
     np.random.seed(12)
-    run()
-
-
-def run(use_wandb=True):
-    dataset = 'GALEN'
-    task = 'prediction'
-    embedding_dim = 200
-    num_neg = 2
-
-    if use_wandb:
-        wandb.init(project='BoxSquaredEL', entity='mathiasj', config={'dataset': dataset, 'task': task})
+    if len(sys.argv) > 1:
+        sweep = sys.argv[1]
+        wandb.agent(sweep_id=f'mathiasj/BoxSquaredEL/{sweep}', function=run)
     else:
-        wandb.init(mode='disabled')
+        run(config={
+            'dataset': 'GALEN',
+            'task': 'prediction',
+            'lr': 1e-3,
+            'lr_schedule': None,
+            'margin': 0.05,
+            'neg_dist': 2,
+            'num_neg': 2,
+            'reg_factor': 0.05
+        }, use_wandb=True)
+
+
+def run(config=None, use_wandb=True):
+    if config is None:  # running a sweep
+        num_epochs = 3500
+        wandb.init()
+    else:
+        num_epochs = 5000
+        mode = 'online' if use_wandb else 'disabled'
+        wandb.init(mode=mode, project='BoxSquaredEL', entity='mathiasj', config=config)
+
+    embedding_dim = 200
+    num_neg = wandb.config.num_neg
+    dataset = wandb.config.dataset
+    task = wandb.config.task
 
     device = get_device()
     data_loader = DataLoader.from_task(task)
-
     train_data, classes, relations = data_loader.load_data(dataset)
     val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
@@ -52,21 +67,26 @@ def run(use_wandb=True):
     # model = EmELpp(device, classes, len(relations), embedding_dim, margin=0.05)
     # model = Elbe(device, classes, len(relations), embedding_dim, margin1=0.05)
     # model = BoxEL(device, classes, len(relations), embedding_dim)
-    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2, num_neg=num_neg)
-    model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations), margin=0.05, neg_dist=2, reg_factor=0.05, num_neg=num_neg)
+    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2,
+    #                  num_neg=num_neg)
+    model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations),
+                         margin=wandb.config.margin, neg_dist=wandb.config.neg_dist,
+                         reg_factor=wandb.config.reg_factor, num_neg=num_neg)
     wandb.config['model'] = model.name
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    # scheduler = MultiStepLR(optimizer, milestones=[2000], gamma=0.1)
-    scheduler = None
+    optimizer = optim.Adam(model.parameters(), lr=wandb.config.lr)
+    if wandb.config.lr_schedule is None:
+        scheduler = None
+    else:
+        scheduler = MultiStepLR(optimizer, milestones=[wandb.config.lr_schedule], gamma=0.1)
     model = model.to(device)
 
     if not model.negative_sampling and task != 'old':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=5000,
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=num_epochs,
           val_freq=100)
 
     print('Computing test scores...')
@@ -96,7 +116,7 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
                            'mean_rank': np.mean(ranking.ranks), 'median_rank': np.median(ranking.ranks)}, commit=False)
                 # if ranking.top100 >= best_top100:
                 if np.median(ranking.ranks) <= best_median:
-                # if np.mean(ranking.ranks) <= best_mean:
+                    # if np.mean(ranking.ranks) <= best_mean:
                     best_top10 = ranking.top10
                     best_top100 = ranking.top100
                     best_median = np.median(ranking.ranks)
