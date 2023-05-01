@@ -152,6 +152,8 @@ def load_data(dataset):
     data['nf3_neg'] = torch.tensor([], dtype=torch.long)
     data['abox']['role_assertions'] = torch.tensor(data['abox']['role_assertions'], dtype=torch.long)
     data['abox']['concept_assertions'] = torch.tensor(data['abox']['concept_assertions'], dtype=torch.long)
+    data['class_ids'] = np.array(list(classes.values()))
+    data['prot_ids'] = np.array(list(proteins.values()))
 
     random_state = np.random.get_state()
     np.random.seed(100)

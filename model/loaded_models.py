@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 import numpy as np
 from boxes import Boxes
@@ -29,7 +31,9 @@ class LoadedModel(ABC):
 
 class BoxSqELLoadedModel(LoadedModel):
     class_embeds: torch.Tensor
+    individual_embeds: torch.Tensor
     bumps: torch.Tensor
+    individual_bumps: torch.Tensor
     relation_heads: torch.Tensor
     relation_tails: torch.Tensor
 
@@ -45,6 +49,9 @@ class BoxSqELLoadedModel(LoadedModel):
         model.bumps = torch.from_numpy(np.load(f'{folder}/bumps{suffix}.npy')).to(device)
         model.relation_heads = torch.from_numpy(np.load(f'{folder}/rel_heads{suffix}.npy')).to(device)
         model.relation_tails = torch.from_numpy(np.load(f'{folder}/rel_tails{suffix}.npy')).to(device)
+        if os.path.exists(f'{folder}/individual_embeds{suffix}.npy'):
+            model.individual_embeds = torch.from_numpy(np.load(f'{folder}/individual_embeds{suffix}.npy')).to(device)
+            model.individual_bumps = torch.from_numpy(np.load(f'{folder}/individual_bumps{suffix}.npy')).to(device)
         return model
 
 

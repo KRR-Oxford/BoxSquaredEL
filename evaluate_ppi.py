@@ -18,76 +18,67 @@ def main():
     evaluate('yeast', 200)
 
 
-def evaluate(dataset, embedding_size):
+def evaluate(dataset, embedding_size, split='test'):
     device = get_device()
     model = LoadedModel.from_name('boxsqel', f'data/PPI/{dataset}/boxsqel', embedding_size, device, best=True)
-    with open(f'data/PPI/{dataset}/classes.json', 'r') as f:
-        classes = json.load(f)
+    with open(f'data/PPI/{dataset}/proteins.json', 'r') as f:
+        proteins = json.load(f)
     with open(f'data/PPI/{dataset}/relations.json', 'r') as f:
         relations = json.load(f)
 
     print('Loading data')
-    prot_index, prot_dict = load_protein_index(classes)
-    train_labels = load_train_labels(dataset, classes, relations, prot_dict, device)
-    test_data = load_protein_data(dataset, 'test', classes, relations)
+    filtering_dict = load_filtering_dict(dataset, proteins, relations, device)
+    test_data = load_protein_data(dataset, split, proteins, relations)
 
-    ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100 = \
-        compute_ranks(model, test_data, prot_index, prot_dict, device, train_labels, use_tqdm=True)
+    ranks, top1, top10, top100, filtered_ranks, ftop1, ftop10, ftop100 = \
+        compute_ranks(model, test_data, device, filtering_dict, use_tqdm=True)
 
     ranks_dict = Counter(ranks.tolist())
-    franks_dict = Counter(franks.tolist())
-    rank_auc = compute_rank_roc(ranks_dict, len(prot_dict))
-    frank_auc = compute_rank_roc(franks_dict, len(prot_dict))
+    franks_dict = Counter(filtered_ranks.tolist())
+    rank_auc = compute_rank_roc(ranks_dict, len(proteins))
+    frank_auc = compute_rank_roc(franks_dict, len(proteins))
 
     ranks = ranks.cpu().numpy()
-    franks = franks.cpu().numpy()
+    filtered_ranks = filtered_ranks.cpu().numpy()
 
-    output = f'{embedding_size},{top10:.2f},{top100:.2f},{np.mean(ranks):.2f},{np.median(ranks)},{rank_auc:.2f}\n' \
-             f'{embedding_size},{ftop10:.2f},{ftop100:.2f},{np.mean(franks):.2f},{np.median(franks)},{frank_auc:.2f}'
+    output = f'Standard: {top10:.2f},{top100:.2f},{np.mean(ranks):.2f},{np.median(ranks)},{rank_auc:.2f}\n' \
+             f'Filtered: {ftop10:.2f},{ftop100:.2f},{np.mean(filtered_ranks):.2f},{np.median(filtered_ranks)},{frank_auc:.2f}'
     print(output)
     with open('output.txt', 'w+') as f:
         f.write(output)
+    return np.median(filtered_ranks) - ftop100 - 0.1 * ftop10
 
 
-def compute_ranks(model, eval_data, prot_index, prot_dict, device, train_labels=None, use_tqdm=False):
-    top1 = 0.
-    top10 = 0.
-    top100 = 0.
-    ftop1 = 0.
-    ftop10 = 0.
-    ftop100 = 0.
+def compute_ranks(model, eval_data, device, filtering_dict=None, use_tqdm=False):
+    top1 = top10 = top100 = ftop1 = ftop10 = ftop100 = 0.
     ranks = torch.Tensor().to(device)
-    franks = torch.Tensor().to(device)
-    n = len(eval_data)
+    filtered_ranks = torch.Tensor().to(device)
+    num_eval_data = len(eval_data)
 
     batch_size = 100
-    num_batches = math.ceil(n / batch_size)
-    eval_data = [(prot_dict[c], r, prot_dict[d]) for c, r, d in eval_data]
+    num_batches = math.ceil(num_eval_data / batch_size)
     eval_data = torch.tensor(eval_data, requires_grad=False).to(device)
     r = eval_data[0, 1]
-    assert ((eval_data[:, 1] == r).sum() == n)  # assume we use the same r everywhere
+    assert ((eval_data[:, 1] != r).sum() == 0)  # assume we use the same r everywhere
 
     range_fun = trange if use_tqdm else range
     for i in range_fun(num_batches):
         start = i * batch_size
-        current_batch_size = min(batch_size, n - start)
+        current_batch_size = min(batch_size, num_eval_data - start)
         batch_data = eval_data[start:start + current_batch_size, :]
 
-        class_boxes = model.get_boxes(model.class_embeds)
-        bumps = model.bumps
+        embeds = model.individual_embeds
+        bumps = model.individual_bumps
         head_boxes = model.get_boxes(model.relation_heads)
         tail_boxes = model.get_boxes(model.relation_tails)
 
-        centers = class_boxes.centers
-        prot_centers = centers[prot_index]
-        prot_bumps = bumps[prot_index]
-        d_centers = prot_centers[batch_data[:, 2]]
-        d_bumps = prot_bumps[batch_data[:, 2]]
+        d_embeds = embeds[batch_data[:, 2]]
+        d_bumps = bumps[batch_data[:, 2]]
         batch_heads = head_boxes.centers[batch_data[:, 1]]
         batch_tails = tail_boxes.centers[batch_data[:, 1]]
 
-        bumped_c_centers = torch.tile(prot_centers, (current_batch_size, 1, 1)) + d_bumps[:, None, :]
-        bumped_d_centers = d_centers[:, None, :] + torch.tile(prot_bumps, (current_batch_size, 1, 1))
+        bumped_c_centers = torch.tile(embeds, (current_batch_size, 1, 1)) + d_bumps[:, None, :]
+        bumped_d_centers = d_embeds[:, None, :] + torch.tile(bumps, (current_batch_size, 1, 1))
 
         c_dists = bumped_c_centers - batch_heads[:, None, :]
         c_dists = torch.linalg.norm(c_dists, dim=2, ord=2)
@@ -103,52 +94,39 @@ def compute_ranks(model, eval_data, prot_index, prot_dict, device, train_labels=
         top100 += (batch_ranks <= 100).sum()
         ranks = torch.cat((ranks, batch_ranks))
 
-        if train_labels is not None:
-            dists = dists * train_labels[r.item()][batch_data[:, 2]]
+        if filtering_dict is not None:
+            dists = dists * filtering_dict[r.item()][batch_data[:, 2]]
             index = torch.argsort(dists, dim=1).argsort(dim=1) + 1
             batch_ranks = torch.take_along_dim(index, batch_data[:, 0].reshape(-1, 1), dim=1).flatten()
 
             ftop1 += (batch_ranks <= 1).sum()
             ftop10 += (batch_ranks <= 10).sum()
             ftop100 += (batch_ranks <= 100).sum()
-            franks = torch.cat((franks, batch_ranks))
+            filtered_ranks = torch.cat((filtered_ranks, batch_ranks))
 
-    top1 /= n
-    top10 /= n
-    top100 /= n
-    ftop1 /= n
-    ftop10 /= n
-    ftop100 /= n
+    top1 /= num_eval_data
+    top10 /= num_eval_data
+    top100 /= num_eval_data
+    ftop1 /= num_eval_data
+    ftop10 /= num_eval_data
+    ftop100 /= num_eval_data
 
-    return ranks, top1, top10, top100, franks, ftop1, ftop10, ftop100
+    return ranks, top1, top10, top100, filtered_ranks, ftop1, ftop10, ftop100
 
 
 @memory.cache
-def load_train_labels(dataset, classes, relations, prot_dict, device):
-    train_data = load_protein_data(dataset, 'train', classes, relations)
-    # valid_data = load_protein_data(dataset, 'valid', classes, relations)
-    train_labels = {}
+def load_filtering_dict(dataset, proteins, relations, device):
+    """Returns a dictionary structure that is used to compute filtered metrics."""
+    train_data = load_protein_data(dataset, 'train', proteins, relations)
+    filtering_dict = {}
     for c, r, d in train_data:
-        c, r, d = prot_dict[c], r, prot_dict[d]
-        if r not in train_labels:
-            train_labels[r] = torch.ones((len(prot_dict), len(prot_dict)), requires_grad=False).to(device)
-        train_labels[r][c, d] = torch.inf
-    return train_labels
+        if r not in filtering_dict:
+            filtering_dict[r] = torch.ones((len(proteins), len(proteins)), requires_grad=False).to(device)
+        filtering_dict[r][c, d] = torch.inf
+    return filtering_dict
 
 
-@memory.cache
-def load_protein_index(classes):
-    proteins = {}
-    for k, v in classes.items():
-        if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
-            proteins[k] = v
-
-    prot_index = list(proteins.values())
-    prot_dict = {v: k for k, v in enumerate(prot_index)}
-    return prot_index, prot_dict
-
-
-def compute_rank_roc(ranks, n_prots):
+def compute_rank_roc(ranks, num_proteins):
     auc_x = list(ranks.keys())
     auc_x.sort()
     auc_y = []
@@ -157,9 +135,9 @@ def compute_rank_roc(ranks, n_prots):
     for x in auc_x:
         tpr += ranks[x]
         auc_y.append(tpr / sum_rank)
-    auc_x.append(n_prots)
+    auc_x.append(num_proteins)
     auc_y.append(1)
-    auc = np.trapz(auc_y, auc_x) / n_prots
+    auc = np.trapz(auc_y, auc_x) / num_proteins
     return auc
 
 
