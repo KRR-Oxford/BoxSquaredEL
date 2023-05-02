@@ -130,20 +130,6 @@ class InferencesDataLoader(DataLoader):
 
         class_ids = np.array(list(classes.values()))
 
-        # # Add corrupted triples nf3
-        # n_classes = len(classes)
-        # data['nf3_neg'] = []
-        # for c, r, d in data['nf3']:
-        #     x = np.random.choice(prot_ids)
-        #     while x == c:
-        #         x = np.random.choice(prot_ids)
-        #
-        #     y = np.random.choice(prot_ids)
-        #     while y == d:
-        #         y = np.random.choice(prot_ids)
-        #     data['nf3_neg'].append((c, r, x))
-        #     data['nf3_neg'].append((y, r, d))
-
         data['nf1'] = torch.tensor(data['nf1'], dtype=torch.long)[:, [0, 2]]
         data['nf2'] = torch.tensor(data['nf2'], dtype=torch.long)
         data['nf3'] = torch.tensor(data['nf3'], dtype=torch.long)
@@ -153,7 +139,7 @@ class InferencesDataLoader(DataLoader):
         data['role_inclusion'] = torch.tensor(data['role_inclusion'], dtype=torch.long)
         data['role_chain'] = torch.tensor(data['role_chain'], dtype=torch.long)
         data['nf3_neg'] = torch.tensor([], dtype=torch.long)
-        data['prot_ids'] = class_ids
+        data['class_ids'] = class_ids
 
         random_state = np.random.get_state()
         for key, val in data.items():

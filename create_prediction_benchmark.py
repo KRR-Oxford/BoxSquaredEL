@@ -117,5 +117,5 @@ train_split.save(f'{folder}/train')
 val_split.save(f'{folder}/val')
 test_split.save(f'{folder}/test')
 
-for key in ['disjoint', 'top', 'prot_ids']:
+for key in ['disjoint', 'top', 'class_ids']:
     np.save(f'{folder}/train/{key}.npy', data[key])

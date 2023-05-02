@@ -43,7 +43,7 @@ def main():
         }, use_wandb=True)
 
 
-def run(config=None, use_wandb=True):
+def run(config=None, use_wandb=False):
     if config is None:  # running a sweep
         num_epochs = 3500
         wandb.init()
@@ -142,7 +142,7 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
 def sample_negatives(data, num_neg):
     for i in range(num_neg):
         nf3 = data['nf3']
-        randoms = np.random.choice(data['prot_ids'], size=(nf3.shape[0], 2))
+        randoms = np.random.choice(data['class_ids'], size=(nf3.shape[0], 2))
         randoms = torch.from_numpy(randoms)
         new_tails = torch.cat([nf3[:, [0, 1]], randoms[:, 0].reshape(-1, 1)], dim=1)
         new_heads = torch.cat([randoms[:, 1].reshape(-1, 1), nf3[:, [1, 2]]], dim=1)
