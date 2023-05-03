@@ -25,15 +25,9 @@ def main():
         sweep = sys.argv[1]
         wandb.agent(sweep_id=f'mathiasj/BoxSquaredEL/{sweep}', function=run)
     else:
-        run(config={
-            'dataset': 'yeast',
-            'lr': 0.01,
-            'lr_schedule': 2000,
-            'margin': 0.02,
-            'neg_dist': 2.5,
-            'num_neg': 4,
-            'reg_factor': 0.2
-        }, use_wandb=True)
+        with open('configs.json', 'r') as f:
+            configs = json.load(f)
+        run(configs['PPI']['yeast'], use_wandb=True)
 
 
 def run(config=None, use_wandb=True):
