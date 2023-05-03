@@ -146,9 +146,21 @@ class BoxSquaredEL(nn.Module):
 
         return self.inclusion_loss(head_boxes.translate(-c_bumps), d_boxes)
 
-    def get_nf_data_batch(self, train_data, nf_key):
-        rand_index = np.random.choice(len(train_data[nf_key]), size=self.batch_size)
-        return train_data[nf_key][rand_index].to(self.device)
+    def role_inclusion_loss(self, data):
+        r_heads, r_tails, s_heads, s_tails = self.get_relation_boxes(data, 0, 1)
+        return (self.inclusion_loss(r_heads, s_heads) + self.inclusion_loss(r_tails, s_tails)) / 2
+
+    def role_chain_loss(self, data):
+        r1_heads, r1_tails, r2_heads, r2_tails = self.get_relation_boxes(data, 0, 1)
+        s_heads, s_tails = self.get_relation_boxes(data, 2)
+        return (self.inclusion_loss(r1_heads, s_heads) + self.inclusion_loss(r2_tails, s_tails)) / 2
+
+    def get_data_batch(self, train_data, key):
+        if len(train_data[key]) <= self.batch_size:
+            return train_data[key].to(self.device)
+        else:
+            rand_index = np.random.choice(len(train_data[key]), size=self.batch_size)
+            return train_data[key][rand_index].to(self.device)
 
     def get_negative_sample_batch(self, train_data, key):
         rand_index = np.random.choice(len(train_data[f'{key}0']), size=self.batch_size)
@@ -161,22 +173,22 @@ class BoxSquaredEL(nn.Module):
     def forward(self, train_data):
         loss = 0
 
-        nf1_data = self.get_nf_data_batch(train_data, 'nf1')
+        nf1_data = self.get_data_batch(train_data, 'nf1')
         loss += self.nf1_loss(nf1_data).square().mean()
 
         if len(train_data['nf2']) > 0:
-            nf2_data = self.get_nf_data_batch(train_data, 'nf2')
+            nf2_data = self.get_data_batch(train_data, 'nf2')
             loss += self.nf2_loss(nf2_data).square().mean()
 
-        nf3_data = self.get_nf_data_batch(train_data, 'nf3')
+        nf3_data = self.get_data_batch(train_data, 'nf3')
         loss += self.nf3_loss(nf3_data).square().mean()
 
         if len(train_data['nf4']) > 0:
-            nf4_data = self.get_nf_data_batch(train_data, 'nf4')
+            nf4_data = self.get_data_batch(train_data, 'nf4')
             loss += self.nf4_loss(nf4_data).square().mean()
 
         if len(train_data['disjoint']) > 0:
-            disjoint_data = self.get_nf_data_batch(train_data, 'disjoint')
+            disjoint_data = self.get_data_batch(train_data, 'disjoint')
             loss += self.nf2_disjoint_loss(disjoint_data).square().mean()
 
         if self.num_neg > 0:
@@ -186,15 +198,20 @@ class BoxSquaredEL(nn.Module):
 
         if 'abox' in train_data:
             abox = train_data['abox']
-            ra_data = self.get_nf_data_batch(abox, 'role_assertions')
+            ra_data = self.get_data_batch(abox, 'role_assertions')
             loss += self.role_assertion_loss(ra_data).square().mean()
 
             neg_data = self.get_negative_sample_batch(abox, 'role_assertions_neg')
             neg_loss1, neg_loss2 = self.role_assertion_neg_loss(neg_data)
             loss += (self.neg_dist - neg_loss1).square().mean() + (self.neg_dist - neg_loss2).square().mean()
 
-            ca_data = self.get_nf_data_batch(abox, 'concept_assertions')
+            ca_data = self.get_data_batch(abox, 'concept_assertions')
             loss += self.concept_assertion_loss(ca_data).square().mean()
+
+        ri_data = self.get_data_batch(train_data, 'role_inclusion')
+        loss += self.role_inclusion_loss(ri_data).square().mean()
+        rc_data = self.get_data_batch(train_data, 'role_chain')
+        loss += self.role_chain_loss(rc_data).square().mean()
 
         class_reg = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
         if self.num_individuals > 0:

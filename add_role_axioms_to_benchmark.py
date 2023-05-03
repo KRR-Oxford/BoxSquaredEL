@@ -43,8 +43,8 @@ with open(owl_path) as f:
                     relations[r2] = len(relations)
                 data['role_inclusion'].append((relations[r1], relations[r2]))
 
-data['role_inclusion'] = torch.tensor(data['role_inclusion'], dtype=torch.int32)
-data['role_chain'] = torch.tensor(data['role_chain'], dtype=torch.int32)
+data['role_inclusion'] = torch.tensor(data['role_inclusion'], dtype=torch.long)
+data['role_chain'] = torch.tensor(data['role_chain'], dtype=torch.long)
 
 folder = f'data/{dataset}/prediction'
 for key in ['role_inclusion', 'role_chain']:
