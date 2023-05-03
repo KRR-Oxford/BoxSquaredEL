@@ -208,10 +208,12 @@ class BoxSquaredEL(nn.Module):
             ca_data = self.get_data_batch(abox, 'concept_assertions')
             loss += self.concept_assertion_loss(ca_data).square().mean()
 
-        ri_data = self.get_data_batch(train_data, 'role_inclusion')
-        loss += self.role_inclusion_loss(ri_data).square().mean()
-        rc_data = self.get_data_batch(train_data, 'role_chain')
-        loss += self.role_chain_loss(rc_data).square().mean()
+        if 'role_inclusion' in train_data:
+            ri_data = self.get_data_batch(train_data, 'role_inclusion')
+            loss += self.role_inclusion_loss(ri_data).square().mean()
+        if 'role_chain' in train_data:
+            rc_data = self.get_data_batch(train_data, 'role_chain')
+            loss += self.role_chain_loss(rc_data).square().mean()
 
         class_reg = self.reg_factor * torch.linalg.norm(self.bumps.weight, dim=1).reshape(-1, 1).mean()
         if self.num_individuals > 0:
