@@ -1,0 +1,59 @@
+{
+  "GALEN": {
+    "prediction": {
+      "dataset": "GALEN",
+      "task": "prediction",
+      "lr": 0.01,
+      "lr_schedule": null,
+      "margin": 0.15,
+      "neg_dist": 5,
+      "num_neg": 1,
+      "reg_factor": 0.4
+    }
+  },
+  "GO": {
+    "prediction": {
+      "dataset": "GO",
+      "task": "prediction",
+      "lr": 0.01,
+      "lr_schedule": null,
+      "margin": 0.15,
+      "neg_dist": 5.5,
+      "num_neg": 5,
+      "reg_factor": 0.5
+    }
+  },
+  "ANATOMY": {
+    "prediction": {
+      "dataset": "ANATOMY",
+      "task": "prediction",
+      "epochs": 10000,
+      "lr": 0.01,
+      "lr_schedule": null,
+      "margin": 0.05,
+      "neg_dist": 5.5,
+      "num_neg": 3,
+      "reg_factor": 0.3
+    }
+  },
+  "PPI": {
+    "yeast": {
+      "dataset": "yeast",
+      "lr": 0.01,
+      "lr_schedule": 2000,
+      "margin": 0.02,
+      "neg_dist": 2.5,
+      "num_neg": 4,
+      "reg_factor": 0.2
+    },
+    "human": {
+      "dataset": "human",
+      "lr": 0.01,
+      "lr_schedule": null,
+      "margin": 0.005,
+      "neg_dist": 3.5,
+      "num_neg": 5,
+      "reg_factor": 0.3
+    }
+  }
+}

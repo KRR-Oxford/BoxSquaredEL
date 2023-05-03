@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import json
+
 import numpy as np
 import torch
 import torch.optim as optim
@@ -7,16 +9,14 @@ from torch.optim.lr_scheduler import MultiStepLR
 from model.ElbePlus import ElbePlus
 from model.Elem import Elem
 from model.EmELpp import EmELpp
-from model.ELSoftplusBoxModel import ELSoftplusBoxModel
 from model.Elbe import Elbe
 from model.BoxEL import BoxEL
 from model.BoxSquaredEL import BoxSquaredEL
 from utils.data_loader import DataLoader
 import logging
-import pandas as pd
 from tqdm import trange
 import wandb
-from evaluate import compute_ranks, compute_accuracy, evaluate
+from evaluate import compute_ranks, evaluate
 
 from utils.utils import get_device
 import sys
@@ -31,24 +31,17 @@ def main():
         sweep = sys.argv[1]
         wandb.agent(sweep_id=f'mathiasj/BoxSquaredEL/{sweep}', function=run)
     else:
-        run(config={
-            'dataset': 'GALEN',
-            'task': 'prediction',
-            'lr': 1e-3,
-            'lr_schedule': None,
-            'margin': 0.05,
-            'neg_dist': 2,
-            'num_neg': 2,
-            'reg_factor': 0.05
-        }, use_wandb=True)
+        with open('configs.json', 'r') as f:
+            configs = json.load(f)
+        run(config=configs['GALEN']['prediction'], use_wandb=True)
 
 
-def run(config=None, use_wandb=False):
+def run(config=None, use_wandb=True):
     if config is None:  # running a sweep
-        num_epochs = 3500
+        num_epochs = 5000
         wandb.init()
     else:
-        num_epochs = 5000
+        num_epochs = 5000 if 'epochs' not in config else config['epochs']
         mode = 'online' if use_wandb else 'disabled'
         wandb.init(mode=mode, project='BoxSquaredEL', entity='mathiasj', config=config)
 
@@ -90,8 +83,12 @@ def run(config=None, use_wandb=False):
           val_freq=100)
 
     print('Computing test scores...')
-    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, best=True)
-    return scores
+    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, best=True, split='val')
+    combined_scores = scores[-1]
+    surrogate = np.median(combined_scores.ranks) - combined_scores.top100 / len(combined_scores) - \
+                0.1 * combined_scores.top10 / len(combined_scores)
+    wandb.log({'surrogate': surrogate})
+    wandb.finish()
 
 
 def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, num_neg, num_epochs=2000, val_freq=100):
@@ -132,8 +129,6 @@ def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, 
                 scheduler.step()
     except KeyboardInterrupt:
         print('Interrupted. Stopping training...')
-
-    wandb.finish()
 
     print(f'Best epoch: {best_epoch}')
     model.save(out_folder)

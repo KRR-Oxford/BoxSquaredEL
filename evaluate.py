@@ -17,10 +17,10 @@ logging.basicConfig(level=logging.INFO)
 
 
 def main():
-    evaluate('GALEN', 'inferences', model_name='boxsqel', embedding_size=200, best=True)
+    evaluate('GALEN', 'prediction', model_name='boxsqel', embedding_size=200, best=True)
 
 
-def evaluate(dataset, task, model_name, embedding_size, best=True):
+def evaluate(dataset, task, model_name, embedding_size, best=True, split='test'):
     device = get_device()
 
     model = LoadedModel.from_name(model_name, f'data/{dataset}/{task}/{model_name}', embedding_size, device, best)
@@ -30,7 +30,12 @@ def evaluate(dataset, task, model_name, embedding_size, best=True):
     data_loader = DataLoader.from_task(task)
     _, classes, relations = data_loader.load_data(dataset)
     assert (len(classes) == num_classes)
-    test_data = data_loader.load_test_data(dataset, classes)
+    if split == 'test':
+        test_data = data_loader.load_test_data(dataset, classes)
+    elif split == 'val':
+        test_data = data_loader.load_val_data(dataset, classes)
+    else:
+        raise ValueError('Unknown split.')
 
     nfs = ['nf1', 'nf2', 'nf3', 'nf4'] if task == 'prediction' else ['nf1']
     rankings = []
@@ -62,21 +67,6 @@ def combine_rankings(rankings, num_classes):
     auc = compute_rank_roc(ranks_dict, num_classes)
     combined_ranking.auc = auc
     return combined_ranking
-
-
-def compute_accuracy(embeds, embedding_size, eval_data, device):
-    offsets = torch.abs(embeds[:, embedding_size:])
-    embeds = embeds[:, :embedding_size]
-    eval_data = torch.tensor(eval_data, requires_grad=False).long().to(device)
-
-    c_embeds = embeds[eval_data[:, 0]]
-    c_offsets = offsets[eval_data[:, 0]]
-    d_embeds = embeds[eval_data[:, 1]]
-    d_offsets = offsets[eval_data[:, 1]]
-
-    euc = torch.abs(c_embeds - d_embeds)
-    results = euc + c_offsets - d_offsets
-    return (results <= 0).all(dim=1).float().mean()
 
 
 def compute_ranks(model, eval_data, num_classes, nf, device, batch_size=100, use_tqdm=False):
