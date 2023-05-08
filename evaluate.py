@@ -11,7 +11,6 @@ from ranking_result import RankingResult
 from utils.utils import get_device
 from utils.data_loader import DataLoader
 from model.loaded_models import LoadedModel, BoxELLoadedModel
-from model.BoxEL import BoxEL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -127,10 +126,7 @@ def compute_nf1_ranks_boxel(model, batch_data, batch_size):
     inter_volumes = F.softplus(inter_delta).prod(2)
     log_intersection = torch.log(torch.clamp(inter_volumes, 1e-10, 1e4))
 
-    batch_volumes = F.softplus(batch_maxs - batch_mins).prod(1)
-    log_box2 = torch.log(torch.clamp(batch_volumes, 1e-10, 1e4))
-
-    probs = torch.exp(log_intersection - log_box2[:, None])  # 100x23142
+    probs = torch.exp(log_intersection)  # 100x23142
     dists = 1 - probs
     dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c <= c
     return dists_to_ranks(dists, batch_data[:, 1])
@@ -145,6 +141,33 @@ def compute_nf2_ranks(model, batch_data, batch_size):
     intersection, _, _ = c_boxes.intersect(d_boxes)
     dists = intersection.centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
+    dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c n d <= c
+    dists.scatter_(1, batch_data[:, 1].reshape(-1, 1), torch.inf)  # filter out c n d <= d
+    return dists_to_ranks(dists, batch_data[:, 2])
+
+def compute_nf2_ranks_boxel(model, batch_data, batch_size):
+    c_mins = model.min_embedding[batch_data[:, 0]]
+    c_deltas = model.delta_embedding[batch_data[:, 0]]
+    c_maxs = c_mins + torch.exp(c_deltas)
+
+    d_mins = model.min_embedding[batch_data[:, 1]]
+    d_deltas = model.delta_embedding[batch_data[:, 1]]
+    d_maxs = d_mins + torch.exp(d_deltas)
+
+    all_mins = torch.tile(model.min_embedding, (batch_size, 1, 1))  # 100x23142x200
+    all_maxs = torch.tile(model.min_embedding + torch.exp(model.delta_embedding), (batch_size, 1, 1))
+
+    inter_min1 = torch.max(c_mins, d_mins)  # compute intersection between C and D
+    inter_max1 = torch.min(c_maxs, d_maxs)
+
+    inter_min = torch.max(inter_min1[:, None, :], all_mins)  # compute intersection between (C n D) and E
+    inter_max = torch.min(inter_max1[:, None, :], all_maxs)
+    inter_delta = inter_max - inter_min
+    inter_volumes = F.softplus(inter_delta).prod(2)
+    log_intersection = torch.log(torch.clamp(inter_volumes, 1e-10, 1e4))
+
+    probs = torch.exp(log_intersection)  # 100x23142
+    dists = 1 - probs
     dists.scatter_(1, batch_data[:, 0].reshape(-1, 1), torch.inf)  # filter out c n d <= c
     dists.scatter_(1, batch_data[:, 1].reshape(-1, 1), torch.inf)  # filter out c n d <= d
     return dists_to_ranks(dists, batch_data[:, 2])
@@ -200,6 +223,32 @@ def compute_nf3_ranks_translational(model, batch_data, batch_size):
     return dists_to_ranks(dists, batch_data[:, 0])
 
 
+def compute_nf3_ranks_boxel(model, batch_data, batch_size):
+    batch_mins = model.min_embedding[batch_data[:, 2]]
+    batch_deltas = model.delta_embedding[batch_data[:, 2]]
+    batch_maxs = batch_mins + torch.exp(batch_deltas)
+
+    all_mins = torch.tile(model.min_embedding, (batch_size, 1, 1))  # 100x23142x200
+    all_maxs = torch.tile(model.min_embedding + torch.exp(model.delta_embedding), (batch_size, 1, 1))
+    relations = model.relation_embedding[batch_data[:, 1]]
+    scalings = model.scaling_embedding[batch_data[:, 1]]
+    translated_mins = all_mins * (scalings[:, None, :] + 1e-8) + relations[:, None, :]
+    translated_maxs = all_maxs * (scalings[:, None, :] + 1e-8) + relations[:, None, :]
+
+    inter_min = torch.max(batch_mins[:, None, :], translated_mins)
+    inter_max = torch.min(batch_maxs[:, None, :], translated_maxs)
+    inter_delta = inter_max - inter_min
+    inter_volumes = F.softplus(inter_delta).prod(2)
+    log_intersection = torch.log(torch.clamp(inter_volumes, 1e-10, 1e4))
+
+    batch_volumes = F.softplus(translated_maxs - translated_mins).prod(2)
+    log_box2 = torch.log(torch.clamp(batch_volumes, 1e-10, 1e4))
+
+    probs = torch.exp(log_intersection - log_box2)  # 100x23142
+    dists = 1 - probs
+    return dists_to_ranks(dists, batch_data[:, 0])
+
+
 def compute_nf4_ranks_translational(model, batch_data, batch_size):
     class_boxes = model.get_boxes(model.class_embeds)
     centers = class_boxes.centers
@@ -210,6 +259,29 @@ def compute_nf4_ranks_translational(model, batch_data, batch_size):
     dists = translated_centers[:, None, :] - torch.tile(centers, (batch_size, 1, 1))
     dists = torch.linalg.norm(dists, dim=2, ord=2)
     return dists_to_ranks(dists, batch_data[:, 2])
+
+
+def compute_nf4_ranks_boxel(model, batch_data, batch_size):
+    batch_mins = model.min_embedding[batch_data[:, 1]]
+    batch_deltas = model.delta_embedding[batch_data[:, 1]]
+    batch_maxs = batch_mins + torch.exp(batch_deltas)
+    relations = model.relation_embedding[batch_data[:, 0]]
+    scalings = model.scaling_embedding[batch_data[:, 0]]
+    translated_mins = (batch_mins - relations) / (scalings + 1e-8)
+    translated_maxs = (batch_maxs - relations) / (scalings + 1e-8)
+
+    all_mins = torch.tile(model.min_embedding, (batch_size, 1, 1))  # 100x23142x200
+    all_maxs = torch.tile(model.min_embedding + torch.exp(model.delta_embedding), (batch_size, 1, 1))
+
+    inter_min = torch.max(translated_mins[:, None, :], all_mins)
+    inter_max = torch.min(translated_maxs[:, None, :], all_maxs)
+    inter_delta = inter_max - inter_min
+    inter_volumes = F.softplus(inter_delta).prod(2)
+    log_intersection = torch.log(torch.clamp(inter_volumes, 1e-10, 1e4))
+
+    probs = torch.exp(log_intersection)  # 100x23142
+    dists = 1 - probs
+    return dists_to_ranks(dists, batch_data[:, 0])
 
 
 def dists_to_ranks(dists, targets):

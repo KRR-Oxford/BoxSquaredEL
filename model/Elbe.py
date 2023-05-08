@@ -16,11 +16,11 @@ class Elbe(nn.Module):
         margin: the distance that two box apart
     '''
 
-    def __init__(self, device, class_, relationNum, embedding_dim, margin1=0, vis_loss=False):
+    def __init__(self, device, class_, relationNum, embedding_dim, margin=0, vis_loss=False):
         super(Elbe, self).__init__()
 
         self.name = 'elbe'
-        self.margin1 = margin1
+        self.margin1 = margin
         self.margin = 0
         self.classNum = len(class_)
         self.class_ = class_
@@ -312,7 +312,7 @@ class Elbe(nn.Module):
         totalLoss = [
             loss1 + loss2 + disJointLoss + loss3 + loss4 + negLoss + vis_loss]
 
-        return (totalLoss)
+        return sum(totalLoss)
 
     def to_loaded_model(self):
         model = ElbeLoadedModel()

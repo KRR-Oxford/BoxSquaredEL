@@ -259,7 +259,7 @@ class EmELpp(nn.Module):
 
         totalLoss = [loss1.mean() + loss2.mean() + disJointLoss.mean() + loss4.mean() + loss3.mean() + negLoss.mean() +
                      loss_ri.mean() + loss_rc.mean()]
-        return totalLoss
+        return sum(totalLoss)
 
     def to_loaded_model(self):
         model = ElbeLoadedModel()

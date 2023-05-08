@@ -4,13 +4,11 @@ import json
 import numpy as np
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import MultiStepLR
 
 from model.Elem import Elem
 from model.EmELpp import EmELpp
 from model.Elbe import Elbe
 from model.BoxEL import BoxEL
-from model.BoxSquaredEL import BoxSquaredEL
 from utils.data_loader import DataLoader
 import logging
 from tqdm import trange
@@ -26,30 +24,17 @@ logging.basicConfig(level=logging.INFO)
 def main():
     torch.manual_seed(42)
     np.random.seed(12)
-    if len(sys.argv) > 1:
-        sweep_id = sys.argv[1]
-        count = None if len(sys.argv) <= 2 else sys.argv[2]
-        print(count)
-        wandb.agent(sweep_id=f'mathiasj/el-baselines/{sweep_id}', function=run, count=count)
-    else:
-        with open('configs.json', 'r') as f:
-            configs = json.load(f)
-        run(config=configs['GALEN']['prediction'], use_wandb=True)
+    run()
 
 
-def run(config=None, use_wandb=True):
-    if config is None:  # running a sweep
-        num_epochs = 5000
-        wandb.init()
-    else:
-        num_epochs = 5000 if 'epochs' not in config else config['epochs']
-        mode = 'online' if use_wandb else 'disabled'
-        wandb.init(mode=mode, project='BoxSquaredEL', entity='mathiasj', config=config)
+def run():
+    num_epochs = 5000
+    wandb.init()
 
-    embedding_dim = 200
-    num_neg = wandb.config.num_neg if 'num_neg' in wandb.config else 1
     dataset = wandb.config.dataset
     task = wandb.config.task
+    embedding_dim = wandb.config.embedding_dim
+    # margin = wandb.config.margin
 
     device = get_device()
     data_loader = DataLoader.from_task(task)
@@ -57,30 +42,24 @@ def run(config=None, use_wandb=True):
     val_data = data_loader.load_val_data(dataset, classes)
     val_data['nf1'] = val_data['nf1'][:1000]
     print('Loaded data.')
-    # model = Elem(device, classes, len(relations), embedding_dim, margin=0.00)
-    # model = EmELpp(device, classes, len(relations), embedding_dim, margin=0.05)
-    # model = Elbe(device, classes, len(relations), embedding_dim, margin=0.05)
-    # model = BoxEL(device, classes, len(relations), embedding_dim)
-    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2,
-    #                  num_neg=num_neg)
-    model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations),
-                         margin=wandb.config.margin, neg_dist=wandb.config.neg_dist,
-                         reg_factor=wandb.config.reg_factor, num_neg=num_neg)
-    wandb.config['model'] = model.name
+
+    model_dict = {'elem': Elem, 'emelpp': EmELpp, 'elbe': Elbe, 'boxel': BoxEL}
+    model_name = wandb.config.model
+    if model_name != 'boxel':
+        model = model_dict[model_name](device, classes, len(relations), embedding_dim, margin=margin)
+    else:
+        model = model_dict[model_name](device, classes, len(relations), embedding_dim)
 
     out_folder = f'data/{dataset}/{task}/{model.name}'
 
     optimizer = optim.Adam(model.parameters(), lr=wandb.config.lr)
-    if wandb.config.lr_schedule is None:
-        scheduler = None
-    else:
-        scheduler = MultiStepLR(optimizer, milestones=[wandb.config.lr_schedule], gamma=0.1)
+    scheduler = None
     model = model.to(device)
 
     if not model.negative_sampling and task != 'old':
         sample_negatives(train_data, 1)
 
-    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, num_neg, num_epochs=num_epochs,
+    train(model, train_data, val_data, len(classes), optimizer, scheduler, out_folder, -1, num_epochs=num_epochs,
           val_freq=100)
 
     print('Computing test scores...')

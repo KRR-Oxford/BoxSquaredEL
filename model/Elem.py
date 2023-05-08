@@ -212,7 +212,7 @@ class Elem(nn.Module):
         negLoss = self.neg_loss(negData)
 
         totalLoss = [loss1.mean() + loss2.mean() + disJointLoss.mean() + loss4.mean() + loss3.mean() + negLoss.mean()]
-        return totalLoss
+        return sum(totalLoss)
 
     def to_loaded_model(self):
         model = ElbeLoadedModel()

@@ -144,7 +144,7 @@ class BoxEL(nn.Module):
         total_loss = [nf1_loss.sum() + nf2_loss.sum() + nf3_loss.sum() + nf4_loss.sum() + disjoint_loss.sum() + \
                      neg_loss.sum() + nf1_reg_loss + nf2_reg_loss + nf3_reg_loss + nf4_reg_loss + disjoint_reg_loss \
                      + neg_reg_loss]
-        return total_loss
+        return sum(total_loss)
 
     @staticmethod
     def volumes(boxes):
