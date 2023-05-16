@@ -150,3 +150,5 @@ boxe_result
 transe_result
 *.tsv
 *_kg.py
+all_output.txt
+

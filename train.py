@@ -90,6 +90,7 @@ def run(config=None, use_wandb=True):
                 0.1 * combined_scores.top10 / len(combined_scores)
     wandb.log({'surrogate': surrogate})
     wandb.finish()
+    return scores
 
 
 def train(model, data, val_data, num_classes, optimizer, scheduler, out_folder, num_neg, num_epochs=2000, val_freq=100):
