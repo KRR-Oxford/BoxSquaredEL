@@ -30,7 +30,7 @@ def main():
         run(configs['PPI']['yeast'], use_wandb=True)
 
 
-def run(config=None, use_wandb=True):
+def run(config=None, use_wandb=True, split='val'):
     if config is None:  # running a sweep
         num_epochs = 3500
         wandb.init()
@@ -69,7 +69,7 @@ def run(config=None, use_wandb=True):
     train(model, train_data, val_data, optimizer, scheduler, out_folder, num_neg, num_epochs=num_epochs)
 
     print('Computing test scores...')
-    surrogate = evaluate(dataset, embedding_dim, split='val')
+    surrogate = evaluate(dataset, embedding_dim, split=split)
     wandb.log({'surrogate': surrogate})
     wandb.finish()
 

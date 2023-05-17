@@ -37,7 +37,7 @@ def main():
         run(config=configs['GALEN']['prediction'], use_wandb=True)
 
 
-def run(config=None, use_wandb=True):
+def run(config=None, use_wandb=True, split='val'):
     if config is None:  # running a sweep
         num_epochs = 5000
         wandb.init()
@@ -84,7 +84,7 @@ def run(config=None, use_wandb=True):
           val_freq=100)
 
     print('Computing test scores...')
-    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, best=True, split='val')
+    scores = evaluate(dataset, task, model.name, embedding_size=model.embedding_dim, best=True, split=split)
     combined_scores = scores[-1]
     surrogate = np.median(combined_scores.ranks) - combined_scores.top100 / len(combined_scores) - \
                 0.1 * combined_scores.top10 / len(combined_scores)
