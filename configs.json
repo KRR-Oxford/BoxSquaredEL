@@ -9,6 +9,16 @@
       "neg_dist": 5,
       "num_neg": 1,
       "reg_factor": 0.4
+    },
+    "inferences": {
+      "dataset": "GALEN",
+      "task": "inferences",
+      "lr": 0.005,
+      "lr_schedule": 2000,
+      "margin": 0.05,
+      "neg_dist": 1,
+      "num_neg": 2,
+      "reg_factor": 0
     }
   },
   "GO": {
@@ -21,6 +31,16 @@
       "neg_dist": 5.5,
       "num_neg": 5,
       "reg_factor": 0.5
+    },
+    "inferences": {
+      "dataset": "GO",
+      "task": "inferences",
+      "lr": 0.005,
+      "lr_schedule": null,
+      "margin": 0.05,
+      "neg_dist": 3,
+      "num_neg": 3,
+      "reg_factor": 0.05
     }
   },
   "ANATOMY": {
@@ -34,6 +54,17 @@
       "neg_dist": 5.5,
       "num_neg": 3,
       "reg_factor": 0.3
+    },
+    "inferences": {
+      "dataset": "ANATOMY",
+      "task": "inferences",
+      "epochs": 10000,
+      "lr": 0.001,
+      "lr_schedule": null,
+      "margin": 0.05,
+      "neg_dist": 2,
+      "num_neg": 2,
+      "reg_factor": 0.05
     }
   },
   "PPI": {
