@@ -26,5 +26,5 @@ def load_data():
 
 def to_tensor(data, classes, relations, use_relations=False):
     if use_relations:
-        return torch.tensor([[classes[tup[0]], relations[tup[1]], classes[tup[2]]] for tup in data], dtype=torch.int32)
-    return torch.tensor([list(map(classes.get, tup)) for tup in data], dtype=torch.int32)
+        return torch.tensor([[classes[tup[0]], relations[tup[1]], classes[tup[2]]] for tup in data], dtype=torch.long)
+    return torch.tensor([list(map(classes.get, tup)) for tup in data], dtype=torch.long)

@@ -58,7 +58,7 @@ for i, c in enumerate(['Parent', 'Male', 'Female', 'Father', 'Mother', 'Child'])
     plot_box_boxsqel(center, offset, colors[i], c, pos_dict[c])
 
 plt.gca().autoscale()
-plt.savefig('/home/mathias/Projects/LaTeX/MA/figures/family_boxsqel.pdf', bbox_inches='tight')
+plt.savefig('family_boxsqel.pdf', bbox_inches='tight')
 plt.show()
 
 
@@ -96,5 +96,5 @@ for i, c in enumerate(['Parent', 'Male', 'Female', 'Father', 'Mother', 'Child'])
     plot_box_elbe(center, offset, colors[i], c, pos_dict[c])
 
 plt.gca().autoscale()
-plt.savefig('/home/mathias/Projects/LaTeX/MA/figures/family_elbe.pdf', bbox_inches='tight')
+plt.savefig('family_elbe.pdf', bbox_inches='tight')
 plt.show()
