@@ -16,24 +16,21 @@ def main():
     num_seeds = 5
 
     config = {
-      "dataset": "ANATOMY",
-      "task": "prediction",
-      "epochs": 7000,
-      "lr": 0.01,
-      "lr_schedule": None,
-      "margin": 0.05,
-      "neg_dist": 5.5,
-      "num_neg": 3,
-      "reg_factor": 0.3
+        "dataset": "ANATOMY",
+        "task": "inferences",
+        "lr": 0.005,
+        "margin": 0.05,
+        "epochs": 7000,
+        "lr_schedule": None,
     }
 
     start = time.time()
     all_rankings = []
     for i, seed in enumerate(seeds[:num_seeds]):
-        print(f'Run {i+1}/{num_seeds}')
+        print(f'Run {i + 1}/{num_seeds}')
         torch.manual_seed(seed[0])
         np.random.seed(seed[1])
-        rankings = run(config=config, use_wandb=False)
+        rankings = run(config=config, use_wandb=False, split='test')
         all_rankings.append(rankings)
         torch.cuda.empty_cache()
         gc.collect()
