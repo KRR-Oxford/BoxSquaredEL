@@ -15,14 +15,9 @@ def main():
              (32510, 3548), (79126, 75212), (34641, 40480), (87167, 7729)]
     num_seeds = 5
 
-    config = {
-        "dataset": "ANATOMY",
-        "task": "inferences",
-        "lr": 0.005,
-        "margin": 0.05,
-        "epochs": 7000,
-        "lr_schedule": None,
-    }
+    with open('configs.json', 'r') as f:
+        configs = json.load(f)
+    config = configs['GALEN']['prediction']
 
     start = time.time()
     all_rankings = []

@@ -10,6 +10,7 @@ from model.Elem import Elem
 from model.EmELpp import EmELpp
 from model.Elbe import Elbe
 from model.BoxEL import BoxEL
+from model.AblationModel import AblationModel
 from model.BoxSquaredEL import BoxSquaredEL
 from utils.data_loader import DataLoader
 import logging
@@ -61,8 +62,8 @@ def run(config=None, use_wandb=True, split='val'):
     # model = EmELpp(device, classes, len(relations), embedding_dim, margin=0.05)
     # model = Elbe(device, classes, len(relations), embedding_dim, margin=0.05)
     # model = BoxEL(device, classes, len(relations), embedding_dim)
-    # model = ElbePlus(device, classes, len(relations), embedding_dim=embedding_dim, margin=0.05, neg_dist=2,
-    #                  num_neg=num_neg)
+    # model = AblationModel(device, embedding_dim, len(classes), len(relations),
+    #                      margin=wandb.config.margin, neg_dist=wandb.config.neg_dist, num_neg=num_neg)
     model = BoxSquaredEL(device, embedding_dim, len(classes), len(relations),
                          margin=wandb.config.margin, neg_dist=wandb.config.neg_dist,
                          reg_factor=wandb.config.reg_factor, num_neg=num_neg)

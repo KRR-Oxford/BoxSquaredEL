@@ -21,7 +21,7 @@ class LoadedModel(ABC):
         model_dict = {
             'boxsqel': BoxSqELLoadedModel,
             'elbe': ElbeLoadedModel,
-            'elbe+': ElbeLoadedModel,
+            'ablation': ElbeLoadedModel,
             'elem': ElbeLoadedModel,
             'EmELpp': ElbeLoadedModel,
             'boxel': BoxELLoadedModel
