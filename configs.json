@@ -47,7 +47,7 @@
     "prediction": {
       "dataset": "ANATOMY",
       "task": "prediction",
-      "epochs": 10000,
+      "epochs": 7000,
       "lr": 0.01,
       "lr_schedule": null,
       "margin": 0.05,
@@ -58,7 +58,7 @@
     "inferences": {
       "dataset": "ANATOMY",
       "task": "inferences",
-      "epochs": 10000,
+      "epochs": 7000,
       "lr": 0.001,
       "lr_schedule": null,
       "margin": 0.05,
