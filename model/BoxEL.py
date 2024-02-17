@@ -1,3 +1,5 @@
+# Code adapted from https://github.com/Box-EL/BoxEL.
+
 import os
 
 import torch

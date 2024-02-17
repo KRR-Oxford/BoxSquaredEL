@@ -1,6 +1,6 @@
-# Box<sup>2</sup>EL: Concept and Role Box Embeddings for the Description Logic EL++
+# Dual Box Embeddings for the Description Logic EL++
 
-This repository is the official implementation of the paper [Box<sup>2</sup>EL: Concept and Role Box Embeddings for the Description Logic EL++](https://arxiv.org/abs/2301.11118).
+This repository is the official implementation of the paper [Dual Box Embeddings for the Description Logic EL++](https://arxiv.org/abs/2301.11118).
 
 ## Requirements
 
@@ -13,7 +13,7 @@ To obtain the data, unzip `data.zip`:
 unzip data.zip
 ```
 
-Our novel benchmark for subsumption prediction is included in the `prediction` subfolder of the folder of the relevant ontology, e.g., the data for GALEN can be found in `data/GALEN/prediction`. The data is split into training, validation and testing sets in the relevant subfolders, and we include `json` files that specify the mapping of classes and relations to integers used in the tensor-based representation.
+Our benchmark for subsumption prediction is included in the `prediction` subfolder of the folder of the relevant ontology, e.g., the data for GALEN can be found in `data/GALEN/prediction`. The data is split into training, validation and testing sets in the relevant subfolders, and we include `json` files that specify the mapping of classes and relations to integers used in the tensor-based representation.
 
 The data for the PPI prediction task can be found in the `PPI` subfolder. We again include the training/validation/testing splits and the mapping from classes and relations to integers.
 
@@ -52,7 +52,7 @@ PPI prediction:
 | Yeast |  0.11  | 0.33     | 0.64  | 0.87      | 168| 118    | 0.97| 0.98 |
 | Human | 0.09   | 0.28     | 0.55  | 0.83      | 343| 269    | 0.98| 0.98 |
 
-Deductive reasoning:
+Approximating deductive reasoning:
 
 | Dataset | H@1  | H@10 | H@100 | Med | MRR | MR | AUC |
 |---------|------|------|-------|-----|-----|----|-----|
@@ -65,4 +65,18 @@ Deductive reasoning:
 
 * **Out of memory**. If you run out of memory, this is most likely due to a too large batch size during rank computation. Try decreasing the `batch_size` default argument in `evaluate.py`  / `evaluate_ppi.py`.
 
-If you encounter any other issues or have general questions about the code, feel free to contact me at `mathias (dot) jackermeier (at) keble (dot) ox (dot) ac (dot) uk`.
+If you encounter any other issues or have general questions about the code, feel free to contact me at `mathias (dot) jackermeier (at) cs (dot) ox (dot) ac (dot) uk`.
+
+## Citing
+
+Please cite this work using the following BibTex entry:
+```bibtex
+@inproceedings{jackermeier2024dual,
+    author = {Jackermeier, Mathias and Chen, Jiaoyan and Horrocks, Ian},
+    title = {Dual Box Embeddings for the Description Logic {EL}++},
+    year = {2024},
+    doi = {10.1145/3589334.3645648},
+    booktitle = {Proceedings of the ACM Web Conference 2024},
+    series = {WWW '24}
+}
+```

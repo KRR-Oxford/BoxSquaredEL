@@ -9,7 +9,7 @@ from model.loaded_models import ElbeLoadedModel
 
 class AblationModel(nn.Module):
     """
-    A version of Box^2EL in which roles are represented via TransE for ablation study C.1.
+    A version of Box^2EL in which roles are represented via TransE for ablation study E.1.
     """
     def __init__(self, device, embedding_dim, num_classes, num_roles, margin=0, neg_dist=2, num_neg=2, batch_size=512):
         super(AblationModel, self).__init__()

@@ -1,3 +1,5 @@
+# Code adapted from https://github.com/kracr/EmELpp provided under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
 import numpy as np
 import torch.nn as nn
 import torch

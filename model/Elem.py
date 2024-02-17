@@ -1,3 +1,5 @@
+# Code adapted from https://github.com/bio-ontology-research-group/EL2Box_embedding.
+
 import numpy as np
 import torch.nn as nn
 import torch
